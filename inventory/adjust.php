@@ -1,5 +1,5 @@
 <?php
-$pageTitle = 'Stock In';
+$pageTitle = 'Adjust Inventory';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../auth/session.php';
 
@@ -11,56 +11,93 @@ $userId = (int)($_SESSION['user_id'] ?? 0);
 $errors = [];
 $old = [
     'product_id' => '',
+    'direction' => 'increase',
     'qty' => '',
-    'remarks' => '',
+    'reference' => '',
+    'reason' => '',
 ];
+
+function build_adjustment_remarks(string $reference, string $reason): string
+{
+    $parts = [];
+
+    if ($reference !== '') {
+        $parts[] = 'Reference: ' . $reference;
+    }
+
+    if ($reason !== '') {
+        $parts[] = 'Reason: ' . $reason;
+    }
+
+    return $parts ? implode(' | ', $parts) : 'Manual stock adjustment';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $old = [
         'product_id' => trim($_POST['product_id'] ?? ''),
+        'direction' => trim($_POST['direction'] ?? 'increase'),
         'qty' => trim($_POST['qty'] ?? ''),
-        'remarks' => trim($_POST['remarks'] ?? ''),
+        'reference' => trim($_POST['reference'] ?? ''),
+        'reason' => trim($_POST['reason'] ?? ''),
     ];
 
     if ($old['product_id'] === '' || !ctype_digit($old['product_id'])) {
         $errors[] = 'Please select a valid product.';
     }
 
+    if (!in_array($old['direction'], ['increase', 'decrease'], true)) {
+        $errors[] = 'Adjustment type is invalid.';
+    }
+
     if ($old['qty'] === '' || filter_var($old['qty'], FILTER_VALIDATE_INT) === false || (int)$old['qty'] <= 0) {
         $errors[] = 'Quantity must be greater than zero.';
+    }
+
+    if ($old['reason'] === '') {
+        $errors[] = 'Reason is required.';
     }
 
     if (!$errors) {
         $productId = (int)$old['product_id'];
         $qty = (int)$old['qty'];
-        $remarks = $old['remarks'] !== '' ? $old['remarks'] : 'Stock in';
+        $signedQty = $old['direction'] === 'increase' ? $qty : -$qty;
+        $movementType = $old['direction'] === 'increase' ? 'adjustment_in' : 'adjustment_out';
+        $remarks = build_adjustment_remarks($old['reference'], $old['reason']);
 
         try {
             $pdo->beginTransaction();
 
-            $productStmt = $pdo->prepare('SELECT id FROM products WHERE branch_id = ? AND id = ? FOR UPDATE');
+            $productStmt = $pdo->prepare('SELECT id, stock_qty FROM products WHERE branch_id = ? AND id = ? FOR UPDATE');
             $productStmt->execute([$branchId, $productId]);
+            $product = $productStmt->fetch();
 
-            if (!$productStmt->fetchColumn()) {
+            if (!$product) {
                 throw new RuntimeException('Selected product was not found for this branch.');
             }
 
-            $updateStmt = $pdo->prepare('UPDATE products SET stock_qty = stock_qty + ? WHERE branch_id = ? AND id = ?');
-            $updateStmt->execute([$qty, $branchId, $productId]);
+            $currentStock = (int)$product['stock_qty'];
+            $newStock = $currentStock + $signedQty;
+
+            if ($newStock < 0) {
+                throw new RuntimeException('Adjustment would make stock negative.');
+            }
+
+            $updateStmt = $pdo->prepare('UPDATE products SET stock_qty = ? WHERE branch_id = ? AND id = ?');
+            $updateStmt->execute([$newStock, $branchId, $productId]);
 
             $movementStmt = $pdo->prepare('
                 INSERT INTO inventory_movements(branch_id, product_id, type, qty, remarks, user_id)
-                VALUES(?, ?, "stock_in", ?, ?, ?)
+                VALUES(?, ?, ?, ?, ?, ?)
             ');
-            $movementStmt->execute([$branchId, $productId, $qty, $remarks, $userId]);
+            $movementStmt->execute([$branchId, $productId, $movementType, $signedQty, $remarks, $userId]);
 
             $pdo->commit();
-            redirect_to('inventory/index.php?stocked=1');
+            redirect_to('inventory/index.php?adjusted=1');
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            $errors[] = 'Stock-in could not be saved. ' . $e->getMessage();
+            $errors[] = 'Adjustment could not be saved. ' . $e->getMessage();
         }
     }
 }
@@ -79,8 +116,8 @@ include __DIR__ . '/../includes/header.php';
 
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
     <div>
-        <h4 class="mb-0">Stock In</h4>
-        <small class="text-muted">Increase stock and log the inventory movement.</small>
+        <h4 class="mb-0">Adjust Inventory</h4>
+        <small class="text-muted">Increase or decrease stock with a logged adjustment.</small>
     </div>
     <a class="btn btn-outline-secondary" href="<?= app_url('inventory/index.php') ?>">
         <i class="bi bi-arrow-left"></i> Back to Inventory
@@ -89,7 +126,7 @@ include __DIR__ . '/../includes/header.php';
 
 <?php if ($errors): ?>
     <div class="alert alert-danger">
-        <strong>Stock-in was not saved.</strong>
+        <strong>Adjustment was not saved.</strong>
         <ul class="mb-0">
             <?php foreach ($errors as $error): ?>
                 <li><?= htmlspecialchars($error) ?></li>
@@ -100,7 +137,7 @@ include __DIR__ . '/../includes/header.php';
 
 <div class="table-card">
     <?php if ($products): ?>
-        <form method="post" action="<?= app_url('inventory/stock_in.php') ?>">
+        <form method="post" action="<?= app_url('inventory/adjust.php') ?>">
             <div class="mb-3">
                 <label class="form-label">Search Product</label>
                 <input class="form-control" id="productSearch" type="search" placeholder="Search by name, SKU, or barcode">
@@ -115,6 +152,7 @@ include __DIR__ . '/../includes/header.php';
                         <option
                             value="<?= (int)$product['id'] ?>"
                             data-search="<?= htmlspecialchars($searchText) ?>"
+                            data-stock="<?= (int)$product['stock_qty'] ?>"
                             <?= $old['product_id'] === (string)$product['id'] ? 'selected' : '' ?>
                         >
                             <?= htmlspecialchars($product['name']) ?>
@@ -124,6 +162,15 @@ include __DIR__ . '/../includes/header.php';
                         </option>
                     <?php endforeach; ?>
                 </select>
+                <div class="form-text" id="currentStockText">Select a product to see current stock.</div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Adjustment Type</label>
+                <select name="direction" class="form-select">
+                    <option value="increase" <?= $old['direction'] === 'increase' ? 'selected' : '' ?>>Increase stock</option>
+                    <option value="decrease" <?= $old['direction'] === 'decrease' ? 'selected' : '' ?>>Decrease stock</option>
+                </select>
             </div>
 
             <div class="mb-3">
@@ -132,12 +179,17 @@ include __DIR__ . '/../includes/header.php';
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Reason / Reference</label>
-                <input class="form-control" name="remarks" maxlength="255" value="<?= htmlspecialchars($old['remarks']) ?>" placeholder="Supplier delivery, invoice number, or note">
+                <label class="form-label">Reference</label>
+                <input class="form-control" name="reference" maxlength="80" value="<?= htmlspecialchars($old['reference']) ?>" placeholder="Count sheet, memo, or reference number">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Reason</label>
+                <input class="form-control" name="reason" maxlength="160" value="<?= htmlspecialchars($old['reason']) ?>" placeholder="Required reason for adjustment" required>
             </div>
 
             <button class="btn btn-primary">
-                <i class="bi bi-save"></i> Save Stock In
+                <i class="bi bi-save"></i> Save Adjustment
             </button>
         </form>
     <?php else: ?>
@@ -148,12 +200,28 @@ include __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-document.getElementById('productSearch')?.addEventListener('input', function (event) {
+const productSearch = document.getElementById('productSearch');
+const productSelect = document.getElementById('productSelect');
+const currentStockText = document.getElementById('currentStockText');
+
+function updateCurrentStockText() {
+    const selected = productSelect?.selectedOptions[0];
+    if (!selected || !selected.dataset.stock) {
+        currentStockText.textContent = 'Select a product to see current stock.';
+        return;
+    }
+    currentStockText.textContent = 'Current stock: ' + selected.dataset.stock;
+}
+
+productSearch?.addEventListener('input', function (event) {
     const query = event.target.value.toLowerCase();
     document.querySelectorAll('#productSelect option[data-search]').forEach(function (option) {
         option.hidden = !option.dataset.search.includes(query);
     });
 });
+
+productSelect?.addEventListener('change', updateCurrentStockText);
+updateCurrentStockText();
 </script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>
