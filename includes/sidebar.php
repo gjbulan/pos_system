@@ -9,6 +9,7 @@ $sidebarLinks = [
     ['label' => 'Cash Drawer', 'path' => 'cash_drawer/index.php', 'icon' => 'bi-cash-coin', 'permission' => 'cash_drawer.manage'],
     ['label' => 'Customers', 'path' => 'customers/index.php', 'icon' => 'bi-people', 'permission' => 'customers.view'],
     ['label' => 'Suppliers', 'path' => 'suppliers/index.php', 'icon' => 'bi-truck', 'permission' => 'suppliers.manage'],
+    ['label' => 'Purchases', 'path' => 'purchases/index.php', 'icon' => 'bi-bag-plus', 'permission' => 'purchases.view'],
     ['label' => 'Expenses', 'path' => 'expenses/index.php', 'icon' => 'bi-wallet2', 'permission' => 'expenses.manage'],
     ['label' => 'Reports', 'path' => 'reports/index.php', 'icon' => 'bi-bar-chart', 'permission' => 'reports.view'],
     ['label' => 'Users', 'path' => 'users/index.php', 'icon' => 'bi-person-gear', 'permission' => 'users.manage'],

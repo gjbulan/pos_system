@@ -57,6 +57,8 @@ function default_permissions(string $role): array
             'categories.manage',
             'inventory.manage',
             'suppliers.manage',
+            'purchases.view',
+            'purchases.manage',
             'expenses.manage',
             'reports.view',
             'settings.manage',
