@@ -1,6 +1,10 @@
 <?php
-require_once __DIR__ . '/../auth/session.php'; require_login();
+require_once __DIR__ . '/../auth/session.php';
 require_once __DIR__ . '/../config/database.php';
+
+require_login();
+require_permission($pdo, 'pos.access');
+
 $branchId = current_branch_id();
 $userId = (int)$_SESSION['user_id'];
 $cart = json_decode($_POST['cart_json'] ?? '[]', true);

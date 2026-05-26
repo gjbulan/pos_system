@@ -251,6 +251,8 @@ INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Manager', 'suppliers.manage', 1),
 ('Manager', 'expenses.manage', 1),
 ('Manager', 'reports.view', 1),
+('Manager', 'settings.manage', 1),
+('Manager', 'audit.view', 1),
 ('Manager', 'backup.manage', 1),
 ('Manager', 'cash_drawer.manage', 1),
 ('Cashier', 'dashboard.view', 1),

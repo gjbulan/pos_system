@@ -1,13 +1,10 @@
 <?php
 $pageTitle = 'Backup & Restore';
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../auth/session.php';
 
-if (!has_role(['Admin', 'Manager'])) {
-    echo '<div class="alert alert-danger">Access denied. Backup and restore is limited to Admin and Manager users.</div>';
-    include __DIR__ . '/../includes/footer.php';
-    exit;
-}
+require_login();
+require_permission($pdo, 'backup.manage');
 
 function sql_quote(PDO $pdo, mixed $value): string
 {
@@ -142,6 +139,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
         }
     }
 }
+
+include __DIR__ . '/../includes/header.php';
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>

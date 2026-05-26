@@ -1,3 +1,25 @@
+<?php
+$sidebarLinks = [
+    ['label' => 'Dashboard', 'path' => 'dashboard/index.php', 'icon' => 'bi-grid', 'permission' => 'dashboard.view'],
+    ['label' => 'POS Checkout', 'path' => 'pos/index.php', 'icon' => 'bi-upc-scan', 'permission' => 'pos.access'],
+    ['label' => 'Products', 'path' => 'products/index.php', 'icon' => 'bi-box', 'permission' => 'products.view'],
+    ['label' => 'Categories', 'path' => 'categories/index.php', 'icon' => 'bi-tags', 'permission' => 'categories.manage'],
+    ['label' => 'Inventory', 'path' => 'inventory/index.php', 'icon' => 'bi-clipboard-data', 'permission' => 'inventory.view'],
+    ['label' => 'Sales', 'path' => 'sales/index.php', 'icon' => 'bi-receipt', 'permission' => 'sales.view'],
+    ['label' => 'Cash Drawer', 'path' => 'cash_drawer/index.php', 'icon' => 'bi-cash-coin', 'permission' => 'cash_drawer.manage'],
+    ['label' => 'Customers', 'path' => 'customers/index.php', 'icon' => 'bi-people', 'permission' => 'customers.view'],
+    ['label' => 'Suppliers', 'path' => 'suppliers/index.php', 'icon' => 'bi-truck', 'permission' => 'suppliers.manage'],
+    ['label' => 'Expenses', 'path' => 'expenses/index.php', 'icon' => 'bi-wallet2', 'permission' => 'expenses.manage'],
+    ['label' => 'Reports', 'path' => 'reports/index.php', 'icon' => 'bi-bar-chart', 'permission' => 'reports.view'],
+    ['label' => 'Users', 'path' => 'users/index.php', 'icon' => 'bi-person-gear', 'permission' => 'users.manage'],
+    ['label' => 'Permissions', 'path' => 'permissions/index.php', 'icon' => 'bi-key', 'permission' => 'permissions.manage'],
+    ['label' => 'Branches', 'path' => 'branches/index.php', 'icon' => 'bi-building', 'permission' => 'branches.manage'],
+    ['label' => 'Settings', 'path' => 'settings/index.php', 'icon' => 'bi-gear', 'permission' => 'settings.manage'],
+    ['label' => 'Audit Logs', 'path' => 'audit/index.php', 'icon' => 'bi-shield-check', 'permission' => 'audit.view'],
+    ['label' => 'Backup & Restore', 'path' => 'backup/index.php', 'icon' => 'bi-database-down', 'permission' => 'backup.manage'],
+    ['label' => 'Health Check', 'path' => 'system/health.php', 'icon' => 'bi-heart-pulse', 'permission' => 'settings.manage'],
+];
+?>
 <aside class="sidebar" id="sidebar">
     <div class="brand">
         <i class="bi bi-shop"></i>
@@ -7,23 +29,22 @@
         </button>
     </div>
     <nav class="nav flex-column">
-        <a class="nav-link" href="<?= app_url('dashboard/index.php') ?>"><i class="bi bi-grid"></i> Dashboard</a>
-        <a class="nav-link" href="<?= app_url('pos/index.php') ?>"><i class="bi bi-upc-scan"></i> POS Checkout</a>
-        <a class="nav-link" href="<?= app_url('products/index.php') ?>"><i class="bi bi-box"></i> Products</a>
-        <a class="nav-link" href="<?= app_url('categories/index.php') ?>"><i class="bi bi-tags"></i> Categories</a>
-        <a class="nav-link" href="<?= app_url('inventory/index.php') ?>"><i class="bi bi-clipboard-data"></i> Inventory</a>
-        <a class="nav-link" href="<?= app_url('sales/index.php') ?>"><i class="bi bi-receipt"></i> Sales</a>
-        <a class="nav-link" href="<?= app_url('cash_drawer/index.php') ?>"><i class="bi bi-cash-coin"></i> Cash Drawer</a>
-        <a class="nav-link" href="<?= app_url('customers/index.php') ?>"><i class="bi bi-people"></i> Customers</a>
-        <a class="nav-link" href="<?= app_url('suppliers/index.php') ?>"><i class="bi bi-truck"></i> Suppliers</a>
-        <a class="nav-link" href="<?= app_url('expenses/index.php') ?>"><i class="bi bi-wallet2"></i> Expenses</a>
-        <a class="nav-link" href="<?= app_url('reports/index.php') ?>"><i class="bi bi-bar-chart"></i> Reports</a>
-        <a class="nav-link" href="<?= app_url('users/index.php') ?>"><i class="bi bi-person-gear"></i> Users</a>
-        <a class="nav-link" href="<?= app_url('permissions/index.php') ?>"><i class="bi bi-key"></i> Permissions</a>
-        <a class="nav-link" href="<?= app_url('branches/index.php') ?>"><i class="bi bi-building"></i> Branches</a>
-        <a class="nav-link" href="<?= app_url('settings/index.php') ?>"><i class="bi bi-gear"></i> Settings</a>
-        <a class="nav-link" href="<?= app_url('audit/index.php') ?>"><i class="bi bi-shield-check"></i> Audit Logs</a>
-        <a class="nav-link" href="<?= app_url('backup/index.php') ?>"><i class="bi bi-database-down"></i> Backup & Restore</a>
-        <a class="nav-link" href="<?= app_url('system/health.php') ?>"><i class="bi bi-heart-pulse"></i> Health Check</a>
+        <?php foreach ($sidebarLinks as $link): ?>
+            <?php
+            $canViewLink = true;
+            if (isset($link['permission'])) {
+                if (isset($pdo) && $pdo instanceof PDO) {
+                    $canViewLink = can($pdo, $link['permission']);
+                } else {
+                    $fallbackPermissions = default_permissions($_SESSION['role'] ?? 'Cashier');
+                    $canViewLink = in_array('*', $fallbackPermissions, true) || in_array($link['permission'], $fallbackPermissions, true);
+                }
+            }
+            if (!$canViewLink) {
+                continue;
+            }
+            ?>
+            <a class="nav-link" href="<?= app_url($link['path']) ?>"><i class="bi <?= htmlspecialchars($link['icon']) ?>"></i> <?= htmlspecialchars($link['label']) ?></a>
+        <?php endforeach; ?>
     </nav>
 </aside>

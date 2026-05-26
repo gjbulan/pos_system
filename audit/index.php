@@ -1,8 +1,10 @@
 <?php
 $pageTitle = 'Audit Logs';
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/header.php';
-if (!has_role(['Admin','Manager'])) { echo '<div class="alert alert-danger">Access denied.</div>'; require_once __DIR__ . '/../includes/footer.php'; exit; }
+require_once __DIR__ . '/../auth/session.php';
+
+require_login();
+require_permission($pdo, 'audit.view');
 
 $branchId = current_branch_id();
 $module = trim($_GET['module'] ?? '');
@@ -27,6 +29,8 @@ $sql = "SELECT a.*, u.name AS user_name, b.name AS branch_name
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $logs = $stmt->fetchAll();
+
+require_once __DIR__ . '/../includes/header.php';
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>

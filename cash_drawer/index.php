@@ -1,6 +1,11 @@
 <?php
 $pageTitle = 'Cash Drawer & Shift Management';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../auth/session.php';
+
+require_login();
+require_permission($pdo, 'cash_drawer.manage');
+
 require_once __DIR__ . '/../includes/header.php';
 
 $branchId = current_branch_id();

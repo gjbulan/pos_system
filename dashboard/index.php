@@ -4,6 +4,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../auth/session.php';
 
 require_login();
+require_permission($pdo, 'dashboard.view');
 
 $branchId = current_branch_id();
 $today = date('Y-m-d');

@@ -1,6 +1,11 @@
 <?php
 $pageTitle = 'POS Checkout';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../auth/session.php';
+
+require_login();
+require_permission($pdo, 'pos.access');
+
 require_once __DIR__ . '/../includes/header.php';
 $branchId = current_branch_id();
 $products = $pdo->prepare('SELECT id,name,barcode,sku,price,stock_qty FROM products WHERE branch_id=? AND stock_qty > 0 ORDER BY name');

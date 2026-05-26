@@ -1,6 +1,11 @@
 <?php
 $pageTitle = 'Settings';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../auth/session.php';
+
+require_login();
+require_permission($pdo, 'settings.manage');
+
 require_once __DIR__ . '/../includes/header.php';
 
 $allowedKeys = [

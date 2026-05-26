@@ -59,6 +59,8 @@ function default_permissions(string $role): array
             'suppliers.manage',
             'expenses.manage',
             'reports.view',
+            'settings.manage',
+            'audit.view',
             'cash_drawer.manage',
             'backup.manage'
         ]);
