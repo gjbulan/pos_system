@@ -2,6 +2,9 @@
 require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../auth/session.php';
 require_login();
+if (isset($pdo) && $pdo instanceof PDO) {
+    require_valid_branch_access($pdo);
+}
 ?>
 <!doctype html>
 <html lang="en">

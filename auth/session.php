@@ -17,9 +17,174 @@ function current_branch_id(): int
     return (int)($_SESSION['branch_id'] ?? 1);
 }
 
+function valid_user_roles(): array
+{
+    return ['Admin', 'Area Manager', 'Manager', 'Cashier'];
+}
+
 function has_role(array $roles): bool
 {
     return in_array($_SESSION['role'] ?? '', $roles, true);
+}
+
+function fetch_all_branches(PDO $pdo): array
+{
+    $stmt = $pdo->query('SELECT id, name, code FROM branches ORDER BY name, id');
+    return $stmt->fetchAll() ?: [];
+}
+
+function user_accessible_branches(PDO $pdo, int $userId, string $role, ?int $userBranchId): array
+{
+    if ($role === 'Admin') {
+        return fetch_all_branches($pdo);
+    }
+
+    if ($role === 'Area Manager') {
+        $stmt = $pdo->prepare('
+            SELECT DISTINCT b.id, b.name, b.code
+            FROM user_branches ub
+            JOIN branches b ON b.id = ub.branch_id
+            WHERE ub.user_id = ?
+            ORDER BY b.name, b.id
+        ');
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll() ?: [];
+    }
+
+    if (in_array($role, ['Manager', 'Cashier'], true) && $userBranchId !== null && $userBranchId > 0) {
+        $stmt = $pdo->prepare('SELECT id, name, code FROM branches WHERE id = ? LIMIT 1');
+        $stmt->execute([$userBranchId]);
+        $branch = $stmt->fetch();
+        return $branch ? [$branch] : [];
+    }
+
+    return [];
+}
+
+function session_accessible_branches(PDO $pdo): array
+{
+    $userId = (int)($_SESSION['user_id'] ?? 0);
+    $role = $_SESSION['role'] ?? '';
+
+    if ($userId <= 0 || !in_array($role, valid_user_roles(), true)) {
+        return [];
+    }
+
+    $stmt = $pdo->prepare('SELECT branch_id FROM users WHERE id = ? AND is_active = 1 LIMIT 1');
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+    if (!$user) {
+        return [];
+    }
+
+    if (in_array($role, ['Manager', 'Cashier'], true)) {
+        return user_accessible_branches(
+            $pdo,
+            $userId,
+            $role,
+            $user['branch_id'] !== null ? (int)$user['branch_id'] : null
+        );
+    }
+
+    return user_accessible_branches($pdo, $userId, $role, null);
+}
+
+function resolve_login_branch_id(PDO $pdo, array $user): int
+{
+    $userId = (int)$user['id'];
+    $role = (string)$user['role'];
+    $userBranchId = isset($user['branch_id']) && $user['branch_id'] !== null ? (int)$user['branch_id'] : null;
+    $branches = user_accessible_branches($pdo, $userId, $role, $userBranchId);
+
+    if (!$branches) {
+        if ($role === 'Admin') {
+            throw new RuntimeException('Login denied. No branches are configured.');
+        }
+
+        if ($role === 'Area Manager') {
+            throw new RuntimeException('Login denied. This Area Manager has no assigned branches.');
+        }
+
+        throw new RuntimeException('Login denied. This user has no valid branch assignment.');
+    }
+
+    return (int)$branches[0]['id'];
+}
+
+function branch_switch_allowed(PDO $pdo): bool
+{
+    $role = $_SESSION['role'] ?? '';
+    if (!in_array($role, ['Admin', 'Area Manager'], true)) {
+        return false;
+    }
+
+    return count(session_accessible_branches($pdo)) > 1;
+}
+
+function can_access_branch(PDO $pdo, int $branchId): bool
+{
+    foreach (session_accessible_branches($pdo) as $branch) {
+        if ((int)$branch['id'] === $branchId) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function switch_current_branch(PDO $pdo, int $branchId): bool
+{
+    if (!can_access_branch($pdo, $branchId)) {
+        return false;
+    }
+
+    $_SESSION['branch_id'] = $branchId;
+    return true;
+}
+
+function ensure_current_branch_access(PDO $pdo): bool
+{
+    $branches = session_accessible_branches($pdo);
+    if (!$branches) {
+        return false;
+    }
+
+    $currentBranchId = (int)($_SESSION['branch_id'] ?? 0);
+    foreach ($branches as $branch) {
+        if ((int)$branch['id'] === $currentBranchId) {
+            return true;
+        }
+    }
+
+    $_SESSION['branch_id'] = (int)$branches[0]['id'];
+    return true;
+}
+
+function require_valid_branch_access(PDO $pdo): void
+{
+    if (ensure_current_branch_access($pdo)) {
+        return;
+    }
+
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+    }
+    session_destroy();
+    redirect_to('auth/login.php?branch_error=1');
+}
+
+function current_branch_label(PDO $pdo): string
+{
+    $currentBranchId = current_branch_id();
+    foreach (session_accessible_branches($pdo) as $branch) {
+        if ((int)$branch['id'] === $currentBranchId) {
+            return $branch['name'] . ' (' . $branch['code'] . ')';
+        }
+    }
+
+    return 'Branch ID: ' . $currentBranchId;
 }
 
 function role_permissions(PDO $pdo, string $role): array
@@ -51,7 +216,7 @@ function default_permissions(string $role): array
         'customers.view'
     ];
 
-    if ($role === 'Manager') {
+    if (in_array($role, ['Area Manager', 'Manager'], true)) {
         return array_merge($permissions, [
             'products.manage',
             'categories.manage',
@@ -84,6 +249,8 @@ function can(PDO $pdo, string $permission): bool
 
 function require_permission(PDO $pdo, string $permission): void
 {
+    require_valid_branch_access($pdo);
+
     if (!can($pdo, $permission)) {
         http_response_code(403);
         include __DIR__ . '/../includes/header.php';

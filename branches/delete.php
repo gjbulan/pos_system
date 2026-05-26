@@ -40,6 +40,7 @@ if ($branchCount <= 1) {
 
 $relatedTables = [
     'users' => 'users',
+    'user_branches' => 'area manager branch assignments',
     'categories' => 'categories',
     'products' => 'products',
     'customers' => 'customers',

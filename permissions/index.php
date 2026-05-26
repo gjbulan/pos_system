@@ -7,7 +7,7 @@ require_permission($pdo, 'permissions.manage');
 
 $title = 'User Permissions';
 
-$roles = ['Admin', 'Manager', 'Cashier'];
+$roles = ['Admin', 'Area Manager', 'Manager', 'Cashier'];
 
 $permissions = [
     'dashboard.view'       => 'View dashboard',
@@ -107,7 +107,7 @@ include __DIR__ . '/../includes/header.php';
     <form method="post" class="card shadow-sm border-0">
         <div class="card-body">
             <div class="alert alert-info mb-4">
-                Admin always has full access. Configure Manager and Cashier permissions below.
+                Admin always has full access. Configure Area Manager, Manager, and Cashier permissions below.
             </div>
 
             <div class="table-responsive">
@@ -116,8 +116,10 @@ include __DIR__ . '/../includes/header.php';
                         <tr>
                             <th>Permission</th>
                             <th class="text-center">Admin</th>
-                            <th class="text-center">Manager</th>
-                            <th class="text-center">Cashier</th>
+                            <?php foreach ($roles as $role): ?>
+                                <?php if ($role === 'Admin') { continue; } ?>
+                                <th class="text-center"><?= htmlspecialchars($role) ?></th>
+                            <?php endforeach; ?>
                         </tr>
                     </thead>
 
@@ -136,7 +138,8 @@ include __DIR__ . '/../includes/header.php';
                                     <i class="bi bi-check-circle-fill text-success fs-5"></i>
                                 </td>
 
-                                <?php foreach (['Manager', 'Cashier'] as $role): ?>
+                                <?php foreach ($roles as $role): ?>
+                                    <?php if ($role === 'Admin') { continue; } ?>
                                     <td class="text-center">
                                         <input 
                                             class="form-check-input" 

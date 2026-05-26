@@ -20,9 +20,18 @@ if ($id === $currentUserId) {
 }
 
 $stmt = $pdo->prepare(
-    'SELECT u.id, u.name, u.username, u.role, u.is_active, b.name AS branch_name, b.code AS branch_code
+    'SELECT u.id, u.name, u.username, u.role, u.is_active, b.name AS branch_name, b.code AS branch_code,
+            area.area_branches
      FROM users u
      LEFT JOIN branches b ON b.id = u.branch_id
+     LEFT JOIN (
+        SELECT
+            ub.user_id,
+            GROUP_CONCAT(CONCAT(ab.name, " (", ab.code, ")") ORDER BY ab.name SEPARATOR ", ") AS area_branches
+        FROM user_branches ub
+        JOIN branches ab ON ab.id = ub.branch_id
+        GROUP BY ub.user_id
+     ) area ON area.user_id = u.id
      WHERE u.id = ?'
 );
 $stmt->execute([$id]);
@@ -93,7 +102,11 @@ include __DIR__ . '/../includes/header.php';
 
         <dt class="col-sm-3">Branch</dt>
         <dd class="col-sm-9">
-            <?php if ($user['branch_name']): ?>
+            <?php if ($user['role'] === 'Admin'): ?>
+                <span class="text-muted">All branches</span>
+            <?php elseif ($user['role'] === 'Area Manager'): ?>
+                <?= htmlspecialchars($user['area_branches'] ?: 'No assigned branches') ?>
+            <?php elseif ($user['branch_name']): ?>
                 <?= htmlspecialchars($user['branch_name']) ?> (<?= htmlspecialchars($user['branch_code']) ?>)
             <?php else: ?>
                 <span class="text-muted">Unassigned</span>

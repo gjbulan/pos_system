@@ -39,7 +39,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
     <div>
         <h4 class="mb-0">Branches</h4>
-        <small class="text-muted">Manage store branches available at login.</small>
+        <small class="text-muted">Manage store branches used for user access and reporting.</small>
     </div>
     <a class="btn btn-primary" href="<?= app_url('branches/add.php') ?>">
         <i class="bi bi-plus-lg me-1"></i>

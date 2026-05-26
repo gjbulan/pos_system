@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS suppliers;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS user_branches;
 DROP TABLE IF EXISTS role_permissions;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS branches;
@@ -35,7 +36,7 @@ CREATE TABLE users (
   name VARCHAR(120) NOT NULL,
   username VARCHAR(80) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
-  role ENUM('Admin','Manager','Cashier') NOT NULL DEFAULT 'Cashier',
+  role ENUM('Admin','Area Manager','Manager','Cashier') NOT NULL DEFAULT 'Cashier',
   is_active TINYINT(1) DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
@@ -43,11 +44,21 @@ CREATE TABLE users (
 
 CREATE TABLE role_permissions (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  role_name ENUM('Admin','Manager','Cashier') NOT NULL,
+  role_name ENUM('Admin','Area Manager','Manager','Cashier') NOT NULL,
   permission_key VARCHAR(100) NOT NULL,
   is_allowed TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uniq_role_permission (role_name, permission_key)
+);
+
+CREATE TABLE user_branches (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_user_branch (user_id, branch_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE
 );
 
 CREATE TABLE categories (
@@ -272,6 +283,25 @@ INSERT INTO settings(setting_key, setting_value) VALUES
 
 INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Admin', '*', 1),
+('Area Manager', 'dashboard.view', 1),
+('Area Manager', 'pos.access', 1),
+('Area Manager', 'sales.view', 1),
+('Area Manager', 'products.view', 1),
+('Area Manager', 'products.manage', 1),
+('Area Manager', 'categories.manage', 1),
+('Area Manager', 'inventory.view', 1),
+('Area Manager', 'inventory.manage', 1),
+('Area Manager', 'customers.view', 1),
+('Area Manager', 'customers.manage', 1),
+('Area Manager', 'suppliers.manage', 1),
+('Area Manager', 'purchases.view', 1),
+('Area Manager', 'purchases.manage', 1),
+('Area Manager', 'expenses.manage', 1),
+('Area Manager', 'reports.view', 1),
+('Area Manager', 'settings.manage', 1),
+('Area Manager', 'audit.view', 1),
+('Area Manager', 'backup.manage', 1),
+('Area Manager', 'cash_drawer.manage', 1),
 ('Manager', 'dashboard.view', 1),
 ('Manager', 'pos.access', 1),
 ('Manager', 'sales.view', 1),

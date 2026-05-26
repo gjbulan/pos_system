@@ -7,7 +7,7 @@ require_login();
 require_permission($pdo, 'users.manage');
 
 $currentUserId = (int)($_SESSION['user_id'] ?? 0);
-$roles = ['Admin', 'Manager', 'Cashier'];
+$roles = valid_user_roles();
 $search = trim($_GET['q'] ?? '');
 $roleFilter = trim($_GET['role'] ?? '');
 $statusFilter = trim($_GET['status'] ?? '');
@@ -21,8 +21,9 @@ $where = [];
 $params = [];
 
 if ($search !== '') {
-    $where[] = '(u.name LIKE ? OR u.username LIKE ? OR b.name LIKE ?)';
+    $where[] = '(u.name LIKE ? OR u.username LIKE ? OR b.name LIKE ? OR area.area_branches LIKE ?)';
     $like = '%' . $search . '%';
+    $params[] = $like;
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
@@ -40,13 +41,34 @@ if ($statusFilter === 'active') {
 }
 
 if ($branchFilter !== '' && ctype_digit($branchFilter)) {
-    $where[] = 'u.branch_id = ?';
+    $where[] = '(u.role = "Admin" OR u.branch_id = ? OR EXISTS (SELECT 1 FROM user_branches ubf WHERE ubf.user_id = u.id AND ubf.branch_id = ?))';
+    $params[] = (int)$branchFilter;
     $params[] = (int)$branchFilter;
 }
 
-$sql = 'SELECT u.id, u.branch_id, u.name, u.username, u.role, u.is_active, u.created_at, b.name AS branch_name, b.code AS branch_code
-        FROM users u
-        LEFT JOIN branches b ON b.id = u.branch_id';
+$sql = '
+    SELECT
+        u.id,
+        u.branch_id,
+        u.name,
+        u.username,
+        u.role,
+        u.is_active,
+        u.created_at,
+        b.name AS branch_name,
+        b.code AS branch_code,
+        area.area_branches
+    FROM users u
+    LEFT JOIN branches b ON b.id = u.branch_id
+    LEFT JOIN (
+        SELECT
+            ub.user_id,
+            GROUP_CONCAT(CONCAT(ab.name, " (", ab.code, ")") ORDER BY ab.name SEPARATOR ", ") AS area_branches
+        FROM user_branches ub
+        JOIN branches ab ON ab.id = ub.branch_id
+        GROUP BY ub.user_id
+    ) area ON area.user_id = u.id
+';
 if ($where) {
     $sql .= ' WHERE ' . implode(' AND ', $where);
 }
@@ -65,7 +87,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
     <div>
         <h4 class="mb-0">Users</h4>
-        <small class="text-muted">Manage staff accounts, roles, and branch assignment.</small>
+        <small class="text-muted">Manage staff accounts, roles, and branch access.</small>
     </div>
     <a class="btn btn-primary" href="<?= app_url('users/add.php') ?>">
         <i class="bi bi-plus-lg me-1"></i>
@@ -144,7 +166,7 @@ include __DIR__ . '/../includes/header.php';
                     <th>Name</th>
                     <th>Username</th>
                     <th>Role</th>
-                    <th>Branch</th>
+                    <th>Branch Access</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th class="text-end">Actions</th>
@@ -166,7 +188,11 @@ include __DIR__ . '/../includes/header.php';
                         <td><code><?= htmlspecialchars($user['username']) ?></code></td>
                         <td><?= htmlspecialchars($user['role']) ?></td>
                         <td>
-                            <?php if ($user['branch_name']): ?>
+                            <?php if ($user['role'] === 'Admin'): ?>
+                                <span class="text-muted">All branches</span>
+                            <?php elseif ($user['role'] === 'Area Manager'): ?>
+                                <?= htmlspecialchars($user['area_branches'] ?: 'No assigned branches') ?>
+                            <?php elseif ($user['branch_name']): ?>
                                 <?= htmlspecialchars($user['branch_name']) ?>
                                 <small class="text-muted">(<?= htmlspecialchars($user['branch_code']) ?>)</small>
                             <?php else: ?>

@@ -6,11 +6,24 @@ require_once __DIR__ . '/../auth/session.php';
 require_login();
 require_permission($pdo, 'users.manage');
 
-$roles = ['Admin', 'Manager', 'Cashier'];
+$roles = valid_user_roles();
 
 $branchStmt = $pdo->prepare('SELECT id, name, code FROM branches ORDER BY name');
 $branchStmt->execute();
 $branches = $branchStmt->fetchAll();
+$validBranchIds = array_map('intval', array_column($branches, 'id'));
+
+function normalize_branch_ids(array $values): array
+{
+    $ids = [];
+    foreach ($values as $value) {
+        if (ctype_digit((string)$value)) {
+            $ids[] = (int)$value;
+        }
+    }
+
+    return array_values(array_unique($ids));
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
@@ -18,59 +31,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     $role = trim($_POST['role'] ?? 'Cashier');
     $branchId = trim($_POST['branch_id'] ?? '');
+    $areaBranchInput = $_POST['area_branch_ids'] ?? [];
+    $areaBranchIds = normalize_branch_ids(is_array($areaBranchInput) ? $areaBranchInput : [$areaBranchInput]);
     $isActive = isset($_POST['is_active']) ? 1 : 0;
-    $branchIdValue = $branchId !== '' ? (int)$branchId : null;
+    $branchIdValue = null;
 
     $_SESSION['user_old'] = [
         'name' => $name,
         'username' => $username,
         'role' => $role,
         'branch_id' => $branchId,
+        'area_branch_ids' => $areaBranchIds,
         'is_active' => $isActive,
     ];
 
-    if ($name === '') {
-        $_SESSION['flash'] = ['type' => 'danger', 'message' => 'Full name is required.'];
+    $fail = static function (string $message): void {
+        $_SESSION['flash'] = ['type' => 'danger', 'message' => $message];
         redirect_to('users/add.php');
+    };
+
+    if ($name === '') {
+        $fail('Full name is required.');
     }
 
     if ($username === '') {
-        $_SESSION['flash'] = ['type' => 'danger', 'message' => 'Username is required.'];
-        redirect_to('users/add.php');
+        $fail('Username is required.');
     }
 
     if (strlen($name) > 120 || strlen($username) > 80) {
-        $_SESSION['flash'] = ['type' => 'danger', 'message' => 'Name or username exceeds the allowed length.'];
-        redirect_to('users/add.php');
+        $fail('Name or username exceeds the allowed length.');
     }
 
     if (strlen($password) < 6) {
-        $_SESSION['flash'] = ['type' => 'danger', 'message' => 'Password must be at least 6 characters.'];
-        redirect_to('users/add.php');
+        $fail('Password must be at least 6 characters.');
     }
 
     if (!in_array($role, $roles, true)) {
-        $_SESSION['flash'] = ['type' => 'danger', 'message' => 'Select a valid role.'];
-        redirect_to('users/add.php');
+        $fail('Select a valid role.');
     }
 
-    if ($branchId !== '') {
-        $branchCheck = $pdo->prepare('SELECT COUNT(*) FROM branches WHERE id = ?');
-        $branchCheck->execute([$branchIdValue]);
-        if ((int)$branchCheck->fetchColumn() === 0) {
-            $_SESSION['flash'] = ['type' => 'danger', 'message' => 'Select a valid branch.'];
-            redirect_to('users/add.php');
+    if ($role === 'Area Manager') {
+        if (!$areaBranchIds) {
+            $fail('Select at least one assigned branch for an Area Manager.');
+        }
+
+        if (array_diff($areaBranchIds, $validBranchIds)) {
+            $fail('One or more Area Manager branch assignments are invalid.');
+        }
+    } elseif (in_array($role, ['Manager', 'Cashier'], true)) {
+        if ($branchId === '' || !ctype_digit($branchId)) {
+            $fail('Select exactly one branch for a Manager or Cashier.');
+        }
+
+        $branchIdValue = (int)$branchId;
+        if (!in_array($branchIdValue, $validBranchIds, true)) {
+            $fail('Select a valid branch.');
         }
     }
 
     $usernameCheck = $pdo->prepare('SELECT COUNT(*) FROM users WHERE username = ?');
     $usernameCheck->execute([$username]);
     if ((int)$usernameCheck->fetchColumn() > 0) {
-        $_SESSION['flash'] = ['type' => 'danger', 'message' => 'This username is already taken.'];
-        redirect_to('users/add.php');
+        $fail('This username is already taken.');
     }
 
     try {
+        $pdo->beginTransaction();
+
         $stmt = $pdo->prepare(
             'INSERT INTO users (branch_id, name, username, password, role, is_active)
              VALUES (?, ?, ?, ?, ?, ?)'
@@ -84,11 +111,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $isActive,
         ]);
 
-        unset($_SESSION['user_old']);
+        $userId = (int)$pdo->lastInsertId();
+        if ($role === 'Area Manager') {
+            $assignStmt = $pdo->prepare('INSERT INTO user_branches(user_id, branch_id) VALUES(?, ?)');
+            foreach ($areaBranchIds as $assignedBranchId) {
+                $assignStmt->execute([$userId, $assignedBranchId]);
+            }
+        }
+
         log_activity($pdo, 'create', 'users', 'Created user: ' . $username . ' (' . $role . ')');
+        $pdo->commit();
+
+        unset($_SESSION['user_old']);
         $_SESSION['flash'] = ['type' => 'success', 'message' => 'User added successfully.'];
         redirect_to('users/index.php');
     } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         $_SESSION['flash'] = ['type' => 'danger', 'message' => 'Unable to add user. Please try again.'];
         redirect_to('users/add.php');
     }
@@ -99,6 +139,7 @@ $old = $_SESSION['user_old'] ?? [
     'username' => '',
     'role' => 'Cashier',
     'branch_id' => '',
+    'area_branch_ids' => [],
     'is_active' => 1,
 ];
 $flash = $_SESSION['flash'] ?? null;
@@ -110,7 +151,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h4 class="mb-0">Add User</h4>
-        <small class="text-muted">Create a staff account with a role and optional branch assignment.</small>
+        <small class="text-muted">Create a staff account with role-based branch access.</small>
     </div>
     <a class="btn btn-outline-secondary" href="<?= app_url('users/index.php') ?>">
         <i class="bi bi-arrow-left me-1"></i>
@@ -141,7 +182,7 @@ include __DIR__ . '/../includes/header.php';
         </div>
         <div class="col-md-6">
             <label class="form-label">Role <span class="text-danger">*</span></label>
-            <select name="role" class="form-select" required>
+            <select name="role" id="roleSelect" class="form-select" required>
                 <?php foreach ($roles as $role): ?>
                     <option value="<?= htmlspecialchars($role) ?>" <?= $old['role'] === $role ? 'selected' : '' ?>>
                         <?= htmlspecialchars($role) ?>
@@ -149,10 +190,11 @@ include __DIR__ . '/../includes/header.php';
                 <?php endforeach; ?>
             </select>
         </div>
-        <div class="col-md-6">
+
+        <div class="col-md-6" data-branch-panel="single">
             <label class="form-label">Branch Assignment</label>
             <select name="branch_id" class="form-select">
-                <option value="">Unassigned</option>
+                <option value="">Select branch</option>
                 <?php foreach ($branches as $branch): ?>
                     <option value="<?= (int)$branch['id'] ?>" <?= (string)$old['branch_id'] === (string)$branch['id'] ? 'selected' : '' ?>>
                         <?= htmlspecialchars($branch['name']) ?> (<?= htmlspecialchars($branch['code']) ?>)
@@ -160,6 +202,31 @@ include __DIR__ . '/../includes/header.php';
                 <?php endforeach; ?>
             </select>
         </div>
+
+        <div class="col-12" data-branch-panel="multiple">
+            <label class="form-label">Area Manager Branches</label>
+            <div class="row g-2">
+                <?php foreach ($branches as $branch): ?>
+                    <div class="col-md-4">
+                        <label class="form-check border rounded p-2 h-100">
+                            <input
+                                class="form-check-input me-2"
+                                type="checkbox"
+                                name="area_branch_ids[]"
+                                value="<?= (int)$branch['id'] ?>"
+                                <?= in_array((int)$branch['id'], $old['area_branch_ids'] ?? [], true) ? 'checked' : '' ?>
+                            >
+                            <span class="form-check-label"><?= htmlspecialchars($branch['name']) ?> (<?= htmlspecialchars($branch['code']) ?>)</span>
+                        </label>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <div class="col-12" data-branch-panel="admin">
+            <div class="alert alert-info mb-0">Admin users can access all branches and do not need a branch assignment.</div>
+        </div>
+
         <div class="col-md-6 d-flex align-items-end">
             <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" role="switch" name="is_active" id="is_active" value="1" <?= (int)$old['is_active'] === 1 ? 'checked' : '' ?>>
@@ -176,5 +243,25 @@ include __DIR__ . '/../includes/header.php';
         </button>
     </div>
 </form>
+
+<script>
+const roleSelect = document.getElementById('roleSelect');
+const branchPanels = document.querySelectorAll('[data-branch-panel]');
+
+function updateBranchPanels() {
+    const role = roleSelect.value;
+    branchPanels.forEach(panel => {
+        const mode = panel.dataset.branchPanel;
+        const show =
+            (role === 'Admin' && mode === 'admin') ||
+            (role === 'Area Manager' && mode === 'multiple') ||
+            ((role === 'Manager' || role === 'Cashier') && mode === 'single');
+        panel.classList.toggle('d-none', !show);
+    });
+}
+
+roleSelect.addEventListener('change', updateBranchPanels);
+updateBranchPanels();
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

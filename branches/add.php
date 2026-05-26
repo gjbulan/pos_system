@@ -84,7 +84,7 @@ include __DIR__ . '/../includes/header.php';
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h4 class="mb-0">Add Branch</h4>
-        <small class="text-muted">Create a branch users can select at login.</small>
+        <small class="text-muted">Create a branch for user assignment and reporting.</small>
     </div>
     <a class="btn btn-outline-secondary" href="<?= app_url('branches/index.php') ?>">
         <i class="bi bi-arrow-left me-1"></i>
