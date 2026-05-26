@@ -1,0 +1,249 @@
+:root { --sidebar:#101827; --primary:#2563eb; --bg:#f4f7fb; }
+body { background: var(--bg); font-family: Arial, sans-serif; }
+.login-bg { background: linear-gradient(135deg,#0f172a,#2563eb); }
+.login-card { width: 420px; }
+.app-shell { display: flex; min-height: 100vh; }
+.sidebar { width: 260px; background: var(--sidebar); color: #fff; padding: 20px; position: fixed; top:0; bottom:0; overflow-y:auto; }
+.brand { font-size: 22px; font-weight: 700; display:flex; gap:10px; align-items:center; margin-bottom:25px; }
+.sidebar .nav-link { color:#cbd5e1; padding:11px 12px; border-radius:12px; display:flex; gap:10px; align-items:center; }
+.sidebar .nav-link:hover { color:#fff; background:rgba(255,255,255,.09); }
+.main-content { margin-left:260px; width:calc(100% - 260px); }
+.topbar { background:#fff; padding:18px 24px; box-shadow:0 2px 14px rgba(15,23,42,.06); position:sticky; top:0; z-index:5; }
+.stat-card, .soft-card { border:0; border-radius:22px; box-shadow:0 8px 22px rgba(15,23,42,.07); }
+.stat-icon { width:48px; height:48px; border-radius:16px; display:flex; align-items:center; justify-content:center; background:#eff6ff; color:var(--primary); font-size:22px; }
+.table-card { background:#fff; border-radius:18px; padding:20px; box-shadow:0 8px 22px rgba(15,23,42,.07); }
+.pos-cart { position: sticky; top: 92px; }
+.receipt { max-width: 360px; font-family: monospace; }
+@media (max-width: 900px) { .sidebar { position:relative; width:100%; } .app-shell{display:block;} .main-content{margin-left:0;width:100%;} }
+
+/* Phase 11: Thermal receipt printing */
+.thermal-page {
+    background: #fff;
+    color: #111;
+    border-radius: 14px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+    padding: 18px;
+}
+
+.thermal-58 { width: 280px; }
+.thermal-80 { width: 380px; }
+
+.thermal-receipt {
+    font-family: "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.thermal-receipt .store-name {
+    font-family: "Courier New", monospace;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.receipt-line {
+    border-top: 1px dashed #111;
+    margin: 8px 0;
+}
+
+.receipt-item { margin-bottom: 7px; }
+.receipt-item .item-name { font-weight: 700; }
+.receipt-item .item-barcode { font-size: 10px; color: #333; }
+.total-row { font-size: 14px; font-weight: 700; }
+.footer-note { margin-top: 10px; }
+
+@media print {
+    @page {
+        size: 58mm auto;
+        margin: 0;
+    }
+
+    body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .sidebar,
+    .topbar,
+    .navbar,
+    .d-print-none,
+    .btn,
+    .app-shell > .sidebar,
+    .main-content > nav {
+        display: none !important;
+    }
+
+    .app-shell,
+    .main-content,
+    .container-fluid {
+        display: block !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+    }
+
+    .thermal-page {
+        width: 58mm !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        padding: 2mm !important;
+        margin: 0 !important;
+    }
+
+    .thermal-page.thermal-80 {
+        width: 80mm !important;
+    }
+
+    .thermal-receipt {
+        font-size: 10px !important;
+    }
+}
+
+/* Phase 18: UI polish and mobile responsiveness */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { color: #0f172a; }
+.min-w-0 { min-width: 0; }
+.page-container { padding-bottom: 88px; }
+
+.sidebar .nav-link.active,
+.sidebar .nav-link[aria-current="page"] {
+    color: #fff;
+    background: rgba(37, 99, 235, .35);
+}
+
+.card,
+.table-card,
+.soft-card,
+.stat-card {
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+.card:hover,
+.table-card:hover,
+.soft-card:hover,
+.stat-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 30px rgba(15,23,42,.10);
+}
+
+.table-responsive {
+    border-radius: 16px;
+}
+
+.table th {
+    white-space: nowrap;
+    font-size: .82rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+
+.form-control,
+.form-select,
+.btn {
+    border-radius: 12px;
+}
+
+.btn {
+    font-weight: 600;
+}
+
+.mobile-overlay {
+    display: none;
+}
+
+.mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1040;
+    background: #fff;
+    border-top: 1px solid #e2e8f0;
+    box-shadow: 0 -8px 24px rgba(15,23,42,.08);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 8px 6px max(8px, env(safe-area-inset-bottom));
+}
+
+.mobile-bottom-nav a {
+    color: #64748b;
+    text-decoration: none;
+    text-align: center;
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-bottom-nav a i {
+    font-size: 19px;
+}
+
+.mobile-bottom-nav a:hover,
+.mobile-bottom-nav a.active {
+    color: var(--primary);
+}
+
+@media (min-width: 901px) {
+    .page-container { padding-bottom: 1.5rem; }
+}
+
+@media (max-width: 992px) {
+    .app-shell { display: block; }
+    .sidebar {
+        position: fixed;
+        width: 290px;
+        max-width: 86vw;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        transform: translateX(-105%);
+        transition: transform .22s ease;
+        z-index: 1050;
+        border-top-right-radius: 24px;
+        border-bottom-right-radius: 24px;
+    }
+    body.sidebar-open .sidebar {
+        transform: translateX(0);
+    }
+    body.sidebar-open .mobile-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, .48);
+        z-index: 1045;
+    }
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+    .topbar {
+        padding: 14px 16px;
+    }
+    .stat-card,
+    .soft-card,
+    .table-card {
+        border-radius: 18px;
+    }
+    .pos-cart {
+        position: static;
+    }
+}
+
+@media (max-width: 576px) {
+    body { font-size: 14px; }
+    .container-fluid { padding-left: 12px; padding-right: 12px; }
+    .topbar h5 { font-size: 1rem; }
+    .user-actions .btn { padding: 6px 10px; }
+    .stat-icon { width: 42px; height: 42px; border-radius: 14px; font-size: 19px; }
+    .stat-card .card-body,
+    .soft-card .card-body,
+    .table-card { padding: 14px; }
+    .table { font-size: 13px; }
+    .btn-group,
+    .input-group { flex-wrap: wrap; }
+}

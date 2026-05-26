@@ -1,0 +1,4 @@
+<?php $pageTitle='Reports & Analytics'; require_once __DIR__.'/../config/database.php'; require_once __DIR__.'/../includes/header.php'; ?>
+<div class="row g-4"><div class="col-lg-8"><div class="card soft-card"><div class="card-body"><h5>Monthly Sales</h5><canvas id="monthly"></canvas></div></div></div><div class="col-lg-4"><div class="card soft-card"><div class="card-body"><h5>Top Products</h5><canvas id="topProducts"></canvas></div></div></div></div>
+<script>document.addEventListener('DOMContentLoaded',()=>{new Chart(document.getElementById('monthly'),{type:'bar',data:{labels:['Jan','Feb','Mar','Apr','May','Jun'],datasets:[{label:'Sales',data:[12000,15000,10000,17000,22000,26000]}]}});new Chart(document.getElementById('topProducts'),{type:'pie',data:{labels:['Coffee','Rice','Milk'],datasets:[{data:[45,30,25]}]}});});</script>
+<?php include __DIR__.'/../includes/footer.php'; ?>

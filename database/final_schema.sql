@@ -1,0 +1,4 @@
+-- Phase 19 schema note
+-- Use database/phase_18_schema.sql as the main schema.
+-- Phase 19 adds QA/testing documents and optional sample data only.
+-- Optional test data: qa/sample_data/sample_test_data.sql
