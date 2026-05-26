@@ -1,5 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/app.php';
+
 session_start();
 session_destroy();
-header('Location: login.php');
-exit;
+redirect_to('auth/login.php');

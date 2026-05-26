@@ -148,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
         <h4 class="mb-0">Backup & Restore</h4>
         <small class="text-muted">Export the full database or restore from a trusted SQL backup.</small>
     </div>
-    <a href="/pos_phase_16/backup/index.php?download=sql" class="btn btn-primary">
+    <a href="<?= app_url('backup/index.php?download=sql') ?>" class="btn btn-primary">
         <i class="bi bi-download"></i> Download SQL Backup
     </a>
 </div>
@@ -170,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_backup'])) {
                 <li>Store backups outside the web server folder.</li>
                 <li>Use date-based filenames for easier tracking.</li>
             </ul>
-            <a href="/pos_phase_16/backup/index.php?download=sql" class="btn btn-outline-primary">
+            <a href="<?= app_url('backup/index.php?download=sql') ?>" class="btn btn-outline-primary">
                 <i class="bi bi-database-down"></i> Export Database
             </a>
         </div>

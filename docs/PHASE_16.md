@@ -23,7 +23,7 @@ The project still uses plain PHP, MySQL, Bootstrap 5, Bootstrap Icons, Chart.js,
 If you rename the folder from:
 
 ```text
-pos_phase_16
+posdemo
 ```
 
 to:
@@ -41,7 +41,7 @@ define('APP_BASE_PATH', '/pos');
 ## Local URL
 
 ```text
-http://localhost/pos_phase_16
+http://localhost:8080/posdemo/
 ```
 
 ## Default Login

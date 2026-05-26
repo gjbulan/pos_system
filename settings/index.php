@@ -90,7 +90,7 @@ function setting_value(array $settings, string $key, string $default = ''): stri
 <div class="table-card mt-3">
     <h6>Thermal Receipt Test</h6>
     <p class="text-muted mb-2">Open any completed sale receipt, then click Print Receipt. Browser print settings should use the matching paper width.</p>
-    <a href="/pos_phase_16/sales/index.php" class="btn btn-outline-primary btn-sm">Go to Sales History</a>
+    <a href="<?= app_url('sales/index.php') ?>" class="btn btn-outline-primary btn-sm">Go to Sales History</a>
 </div>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

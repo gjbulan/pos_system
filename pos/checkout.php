@@ -40,5 +40,5 @@ try {
     }
     log_activity($pdo, 'complete_sale', 'pos', 'Completed sale ' . $invoice . ' total: ' . number_format($total, 2));
     $pdo->commit();
-    header('Location: /pos_phase_16/sales/receipt.php?id='.$saleId); exit;
+    header('Location: ' . app_url('sales/receipt.php?id=' . $saleId)); exit;
 } catch (Throwable $e) { $pdo->rollBack(); die('Checkout failed: ' . $e->getMessage()); }

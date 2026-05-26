@@ -1,8 +1,10 @@
 <?php
 $step = $_GET['step'] ?? 'welcome';
 $basePath = dirname(__DIR__);
+require_once $basePath . '/config/app.php';
+
 $configFile = $basePath . '/config/database.php';
-$schemaFile = $basePath . '/database/phase_17_schema.sql';
+$schemaFile = $basePath . '/database/final_schema.sql';
 
 function clean($value) {
     return htmlspecialchars(trim((string)$value), ENT_QUOTES, 'UTF-8');
@@ -133,8 +135,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'admin
                 <span class="badge bg-success step-pill mb-3">Complete</span>
                 <h2 class="h5">Installation complete</h2>
                 <p>You can now open the POS login page.</p>
-                <a class="btn btn-primary" href="../auth/login.php">Go to login</a>
-                <a class="btn btn-outline-secondary" href="../system/health.php">Run health check</a>
+                <a class="btn btn-primary" href="<?= app_url('auth/login.php') ?>">Go to login</a>
+                <a class="btn btn-outline-secondary" href="<?= app_url('system/health.php') ?>">Run health check</a>
             <?php endif; ?>
         </div>
     </div>

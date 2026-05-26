@@ -16,7 +16,7 @@ This phase adds role-based permission controls to the POS system.
 Open:
 
 ```text
-http://localhost/pos_phase_16/permissions/index.php
+http://localhost:8080/posdemo/permissions/index.php
 ```
 
 Only Admin users can manage permissions by default.

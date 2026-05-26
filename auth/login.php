@@ -17,9 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['name'] = $user['name'];
         $_SESSION['role'] = $user['role'];
         $_SESSION['branch_id'] = $branchId;
-        //header('Location: /pos_phase_16/dashboard/index.php');\
-		header('Location: /posdemo/dashboard/index.php');
-        exit;
+        redirect_to('dashboard/index.php');
     }
     $error = 'Invalid username or password.';
 }
@@ -32,7 +30,7 @@ $branches = $pdo->query('SELECT id, name FROM branches ORDER BY name')->fetchAll
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login - POS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="../assets/css/app.css" rel="stylesheet">
+    <link href="<?= app_url('assets/css/app.css') ?>" rel="stylesheet">
 </head>
 <body class="login-bg">
 <div class="container min-vh-100 d-flex align-items-center justify-content-center">

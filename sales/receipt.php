@@ -48,7 +48,7 @@ $paperClass = $printerWidth === 80 ? 'thermal-80' : 'thermal-58';
         <small class="text-muted">Invoice <?= htmlspecialchars($sale['invoice_no']) ?></small>
     </div>
     <div class="btn-group">
-        <button class="btn btn-outline-secondary" onclick="window.location.href='/pos_phase_16/sales/index.php'">
+        <button class="btn btn-outline-secondary" onclick="window.location.href='<?= app_url('sales/index.php') ?>'">
             <i class="bi bi-arrow-left"></i> Sales
         </button>
         <button class="btn btn-primary" onclick="window.print()">

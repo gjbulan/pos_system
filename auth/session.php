@@ -3,12 +3,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/../config/app.php';
+
 function require_login(): void
 {
     if (empty($_SESSION['user_id'])) {
-        //header('Location: /pos_phase_16/auth/login.php');
-		header('Location: /posdemo/auth/login.php');
-        exit;
+        redirect_to('auth/login.php');
     }
 }
 

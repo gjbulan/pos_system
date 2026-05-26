@@ -22,10 +22,21 @@ document.addEventListener('DOMContentLoaded', function () {
     if (event.key === 'Escape') closeSidebar();
   });
 
-  const currentPath = window.location.pathname;
+  const normalizePath = (path) => path.replace(/\/+$/, '') || '/';
+  const currentPath = normalizePath(window.location.pathname);
+
   document.querySelectorAll('.sidebar .nav-link, .mobile-bottom-nav a').forEach(function (link) {
     const href = link.getAttribute('href');
-    if (href && currentPath === href) {
+    if (!href) return;
+
+    let linkPath = href;
+    try {
+      linkPath = new URL(href, window.location.origin).pathname;
+    } catch (error) {
+      linkPath = href;
+    }
+
+    if (currentPath === normalizePath(linkPath)) {
       link.classList.add('active');
       link.setAttribute('aria-current', 'page');
     }
