@@ -27,15 +27,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             $_SESSION['user_id'] = (int)$user['id'];
             $_SESSION['name'] = $user['name'];
+            $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['branch_id'] = $branchId;
 
-            log_activity($pdo, 'login', 'auth', 'User logged in.');
+            log_auth_event($pdo, 'login_success', 'Successful login.', [
+                'user_id' => (int)$user['id'],
+                'username' => $user['username'],
+                'role' => $user['role'],
+                'branch_id' => $branchId,
+            ]);
             redirect_to('dashboard/index.php');
         } catch (RuntimeException $e) {
+            log_auth_event($pdo, 'login_failed', $e->getMessage(), [
+                'user_id' => (int)$user['id'],
+                'username' => $user['username'],
+                'role' => $user['role'],
+                'branch_id' => $user['branch_id'] ?? null,
+            ]);
             $error = $e->getMessage();
         }
     } else {
+        log_auth_event($pdo, 'login_failed', 'Invalid username or password.', [
+            'user_id' => $user['id'] ?? null,
+            'username' => $username,
+            'role' => $user['role'] ?? null,
+            'branch_id' => $user['branch_id'] ?? null,
+        ]);
         $error = 'Invalid username or password.';
     }
 }

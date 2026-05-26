@@ -260,13 +260,39 @@ function require_permission(PDO $pdo, string $permission): void
     }
 }
 
-function log_activity(PDO $pdo, string $action, string $module, string $details = ''): void
+function audit_event_details(string $description, array $context = []): string
+{
+    $parts = [$description];
+
+    if (!empty($context['username'])) {
+        $parts[] = 'username=' . $context['username'];
+    }
+
+    if (!empty($context['role'])) {
+        $parts[] = 'role=' . $context['role'];
+    }
+
+    if (array_key_exists('branch_id', $context) && $context['branch_id'] !== null && $context['branch_id'] !== '') {
+        $parts[] = 'branch_id=' . (int)$context['branch_id'];
+    }
+
+    if (!empty($context['requested_branch_id'])) {
+        $parts[] = 'requested_branch_id=' . (int)$context['requested_branch_id'];
+    }
+
+    return implode(' | ', $parts);
+}
+
+function log_activity(PDO $pdo, string $action, string $module, string $details = '', array $context = []): void
 {
     try {
+        $branchId = array_key_exists('branch_id', $context) ? $context['branch_id'] : ($_SESSION['branch_id'] ?? null);
+        $userId = array_key_exists('user_id', $context) ? $context['user_id'] : ($_SESSION['user_id'] ?? null);
+
         $stmt = $pdo->prepare("INSERT INTO audit_logs(branch_id, user_id, action, module, details, ip_address) VALUES (?, ?, ?, ?, ?, ?)");
         $stmt->execute([
-            $_SESSION['branch_id'] ?? null,
-            $_SESSION['user_id'] ?? null,
+            $branchId !== null && $branchId !== '' && (int)$branchId > 0 ? (int)$branchId : null,
+            $userId !== null && $userId !== '' && (int)$userId > 0 ? (int)$userId : null,
             $action,
             $module,
             $details,
@@ -275,4 +301,9 @@ function log_activity(PDO $pdo, string $action, string $module, string $details 
     } catch (Throwable $e) {
         // Never block the POS workflow if logging fails.
     }
+}
+
+function log_auth_event(PDO $pdo, string $action, string $description, array $context = []): void
+{
+    log_activity($pdo, $action, 'auth', audit_event_details($description, $context), $context);
 }
