@@ -31,6 +31,8 @@ $permissions = [
     'backup.manage'        => 'Backup and restore database',
     'audit.view'           => 'View audit logs',
     'cash_drawer.manage'   => 'Manage cash drawer / shifts',
+    'closing.view'         => 'View daily Z-read closings',
+    'closing.manage'       => 'Create daily Z-read closings',
     'permissions.manage'   => 'Manage role permissions'
 ];
 

@@ -7,6 +7,7 @@ $sidebarLinks = [
     ['label' => 'Inventory', 'path' => 'inventory/index.php', 'icon' => 'bi-clipboard-data', 'permission' => 'inventory.view'],
     ['label' => 'Sales', 'path' => 'sales/index.php', 'icon' => 'bi-receipt', 'permission' => 'sales.view'],
     ['label' => 'Cash Drawer', 'path' => 'cash_drawer/index.php', 'icon' => 'bi-cash-coin', 'permission' => 'cash_drawer.manage'],
+    ['label' => 'Z-Read Closing', 'path' => 'closing/index.php', 'icon' => 'bi-clipboard-check', 'permission' => 'closing.view'],
     ['label' => 'Customers', 'path' => 'customers/index.php', 'icon' => 'bi-people', 'permission' => 'customers.view'],
     ['label' => 'Suppliers', 'path' => 'suppliers/index.php', 'icon' => 'bi-truck', 'permission' => 'suppliers.manage'],
     ['label' => 'Purchases', 'path' => 'purchases/index.php', 'icon' => 'bi-bag-plus', 'permission' => 'purchases.view'],

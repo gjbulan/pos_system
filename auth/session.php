@@ -229,6 +229,8 @@ function default_permissions(string $role): array
             'settings.manage',
             'audit.view',
             'cash_drawer.manage',
+            'closing.view',
+            'closing.manage',
             'backup.manage'
         ]);
     }
