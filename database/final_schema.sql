@@ -306,6 +306,7 @@ INSERT INTO products(branch_id, category_id, name, barcode, sku, cost, price, st
 (1, 3, 'Potato Chips', '480000000004', 'PC-001', 18, 30, 30, 6);
 INSERT INTO settings(setting_key, setting_value) VALUES
 ('store_name','POS STORE'),
+('store_logo_url',''),
 ('store_address','Main Branch'),
 ('store_phone',''),
 ('currency_symbol','₱'),

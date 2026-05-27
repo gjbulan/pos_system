@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 $allowedKeys = [
     'store_name',
+    'store_logo_url',
     'store_address',
     'store_phone',
     'currency_symbol',
@@ -63,6 +64,10 @@ function setting_value(array $settings, string $key, string $default = ''): stri
         <div class="col-12">
             <label class="form-label">Store Address</label>
             <input type="text" name="store_address" class="form-control" value="<?= setting_value($settings, 'store_address', 'Main Branch') ?>">
+        </div>
+        <div class="col-12">
+            <label class="form-label">Store Logo URL / Path</label>
+            <input type="text" name="store_logo_url" class="form-control" value="<?= setting_value($settings, 'store_logo_url') ?>" placeholder="assets/img/logo.png or https://example.com/logo.png">
         </div>
         <div class="col-md-3">
             <label class="form-label">Currency Symbol</label>

@@ -394,9 +394,14 @@ include __DIR__ . '/../includes/header.php';
                             <br><small class="text-muted"><?= htmlspecialchars($closing['closed_by_name'] ?? 'N/A') ?></small>
                         </td>
                         <td class="text-end">
-                            <a class="btn btn-sm btn-outline-primary" href="<?= app_url('closing/view.php?id=' . (int)$closing['id']) ?>">
-                                <i class="bi bi-printer"></i> View / Print
-                            </a>
+                            <div class="btn-group btn-group-sm">
+                                <a class="btn btn-outline-primary" href="<?= app_url('closing/view.php?id=' . (int)$closing['id']) ?>">
+                                    View
+                                </a>
+                                <a class="btn btn-outline-success" href="<?= app_url('closing/view.php?id=' . (int)$closing['id'] . '&print=1') ?>">
+                                    <i class="bi bi-printer"></i> Print
+                                </a>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>

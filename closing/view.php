@@ -8,6 +8,7 @@ require_permission($pdo, 'closing.view');
 
 $branchId = current_branch_id();
 $closingId = (int)($_GET['id'] ?? 0);
+$autoPrint = isset($_GET['print']);
 
 function zread_view_money(float $amount): string
 {
@@ -257,5 +258,13 @@ include __DIR__ . '/../includes/header.php';
         </div>
     </div>
 </div>
+
+<?php if ($autoPrint): ?>
+    <script>
+    window.addEventListener('load', () => {
+        window.setTimeout(() => window.print(), 350);
+    });
+    </script>
+<?php endif; ?>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

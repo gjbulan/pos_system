@@ -142,9 +142,14 @@ include __DIR__ . '/../includes/header.php';
                     <td><?= htmlspecialchars($return['reason']) ?></td>
                     <td><?= htmlspecialchars(date('M d, Y h:i A', strtotime($return['created_at']))) ?></td>
                     <td class="text-end">
-                        <a class="btn btn-sm btn-outline-primary" href="<?= app_url('sales/receipt.php?id=' . (int)$return['sale_id']) ?>">
-                            Receipt
-                        </a>
+                        <div class="btn-group btn-group-sm">
+                            <a class="btn btn-outline-primary" href="<?= app_url('sales/receipt.php?id=' . (int)$return['sale_id']) ?>">
+                                Receipt
+                            </a>
+                            <a class="btn btn-outline-success" href="<?= app_url('sales/receipt.php?id=' . (int)$return['sale_id'] . '&print=1') ?>">
+                                Print
+                            </a>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>

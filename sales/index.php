@@ -99,6 +99,7 @@ include __DIR__ . '/../includes/header.php';
                     <td class="text-end">
                         <div class="btn-group btn-group-sm" role="group" aria-label="Sale actions">
                             <a class="btn btn-outline-primary" href="<?= app_url('sales/receipt.php?id=' . (int)$sale['id']) ?>">Receipt</a>
+                            <a class="btn btn-outline-success" href="<?= app_url('sales/receipt.php?id=' . (int)$sale['id'] . '&print=1') ?>">Print</a>
                             <?php if ($canReturn): ?>
                                 <a class="btn btn-outline-warning" href="<?= app_url('sales/return.php?id=' . (int)$sale['id']) ?>">Return</a>
                             <?php else: ?>

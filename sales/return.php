@@ -263,6 +263,9 @@ include __DIR__ . '/../includes/header.php';
         <a class="btn btn-outline-primary" href="<?= app_url('sales/receipt.php?id=' . (int)$sale['id']) ?>">
             Receipt
         </a>
+        <a class="btn btn-outline-success" href="<?= app_url('sales/receipt.php?id=' . (int)$sale['id'] . '&print=1') ?>">
+            <i class="bi bi-printer"></i> Print
+        </a>
     </div>
 </div>
 
