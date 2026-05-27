@@ -160,6 +160,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $lockedItems = get_locked_sale_items_for_return($pdo, $branchId, $saleId);
+            $previousReturnsStmt = $pdo->prepare('
+                SELECT id, refund_amount
+                FROM sales_returns
+                WHERE branch_id = ? AND sale_id = ?
+                FOR UPDATE
+            ');
+            $previousReturnsStmt->execute([$branchId, $saleId]);
+            $alreadyRefunded = 0.0;
+            foreach ($previousReturnsStmt->fetchAll() as $previousReturn) {
+                $alreadyRefunded += (float)$previousReturn['refund_amount'];
+            }
+
+            $grossSaleSubtotal = 0.0;
+            foreach ($lockedItems as $lockedItem) {
+                $grossSaleSubtotal += (float)$lockedItem['price'] * (int)$lockedItem['sold_qty'];
+            }
+
+            $saleTotal = max(0, (float)$lockedSale['total_amount']);
+            $discountRatio = $grossSaleSubtotal > 0 ? min(1, max(0, $saleTotal / $grossSaleSubtotal)) : 1;
+            $remainingRefundable = round(max(0, $saleTotal - $alreadyRefunded), 2);
+
+            if ($remainingRefundable <= 0) {
+                throw new RuntimeException('This sale has no remaining refundable balance.');
+            }
+
             $validReturns = [];
             $refundAmount = 0.0;
 
@@ -177,16 +202,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Return quantity exceeds available quantity for ' . $item['name'] . '.');
                 }
 
-                $subtotal = $returnQty * (float)$item['price'];
-                $refundAmount += $subtotal;
+                $netUnitPrice = round((float)$item['price'] * $discountRatio, 2);
+                $subtotal = round($returnQty * $netUnitPrice, 2);
+                $refundAmount = round($refundAmount + $subtotal, 2);
                 $validReturns[] = [
                     'sale_item_id' => $saleItemId,
                     'product_id' => (int)$item['product_id'],
                     'name' => $item['name'],
                     'qty' => $returnQty,
-                    'price' => (float)$item['price'],
+                    'price' => $netUnitPrice,
                     'subtotal' => $subtotal,
                 ];
+            }
+
+            if ($refundAmount > $remainingRefundable) {
+                $overage = round($refundAmount - $remainingRefundable, 2);
+                for ($i = count($validReturns) - 1; $i >= 0 && $overage > 0; $i--) {
+                    $reduction = min($validReturns[$i]['subtotal'], $overage);
+                    $validReturns[$i]['subtotal'] = round($validReturns[$i]['subtotal'] - $reduction, 2);
+                    $validReturns[$i]['price'] = $validReturns[$i]['subtotal'] > 0
+                        ? round($validReturns[$i]['subtotal'] / $validReturns[$i]['qty'], 2)
+                        : 0.0;
+                    $overage = round($overage - $reduction, 2);
+                }
+                $validReturns = array_values(array_filter($validReturns, static fn(array $item): bool => $item['subtotal'] > 0));
+                $refundAmount = $remainingRefundable;
+            }
+
+            if ($refundAmount <= 0) {
+                throw new RuntimeException('Calculated refund amount must be greater than zero.');
             }
 
             $returnStmt = $pdo->prepare('

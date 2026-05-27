@@ -5,6 +5,32 @@ require_once __DIR__ . '/../config/database.php';
 require_login();
 require_permission($pdo, 'pos.access');
 
+function normalize_cart_items(array $cart): array
+{
+    $items = [];
+
+    foreach ($cart as $item) {
+        if (!is_array($item)) {
+            throw new RuntimeException('Invalid cart item.');
+        }
+
+        $productId = filter_var($item['id'] ?? null, FILTER_VALIDATE_INT);
+        $qty = filter_var($item['qty'] ?? null, FILTER_VALIDATE_INT);
+
+        if (!$productId || !$qty || $productId <= 0 || $qty <= 0) {
+            throw new RuntimeException('Cart quantities must be whole numbers greater than zero.');
+        }
+
+        $items[$productId] = ($items[$productId] ?? 0) + $qty;
+    }
+
+    if (!$items) {
+        throw new RuntimeException('Cart is empty.');
+    }
+
+    return $items;
+}
+
 function calculate_sale_discount(
     string $discountType,
     float $discountValue,
@@ -15,6 +41,7 @@ function calculate_sale_discount(
     bool $pwdDiscountEnabled
 ): array {
     $discountType = strtolower(trim($discountType));
+    $subtotal = round(max(0, $subtotal), 2);
 
     if ($discountType === '' || $discountType === 'none' || $subtotal <= 0) {
         return [null, 0.0, 0.0];
@@ -64,10 +91,31 @@ function calculate_sale_discount(
 
 $branchId = current_branch_id();
 $userId = (int)$_SESSION['user_id'];
-$cart = json_decode($_POST['cart_json'] ?? '[]', true);
-$paymentMethod = $_POST['payment_method'] ?? 'Cash';
-$amountTendered = (float)($_POST['amount_tendered'] ?? 0);
-if (!$cart) { die('Cart is empty.'); }
+$decodedCart = json_decode($_POST['cart_json'] ?? '[]', true);
+
+if (!is_array($decodedCart)) {
+    die('Checkout failed: Invalid cart data.');
+}
+
+try {
+    $cartItems = normalize_cart_items($decodedCart);
+} catch (Throwable $e) {
+    die('Checkout failed: ' . $e->getMessage());
+}
+
+$paymentMethod = trim($_POST['payment_method'] ?? 'Cash');
+if ($paymentMethod === '' || strlen($paymentMethod) > 40) {
+    die('Checkout failed: Invalid payment method.');
+}
+
+$amountTenderedRaw = $_POST['amount_tendered'] ?? null;
+if (!is_numeric($amountTenderedRaw)) {
+    die('Checkout failed: Amount tendered is required.');
+}
+$amountTendered = round((float)$amountTenderedRaw, 2);
+if ($amountTendered < 0) {
+    die('Checkout failed: Amount tendered cannot be negative.');
+}
 
 $settingsStmt = $pdo->prepare("
     SELECT setting_key, setting_value
@@ -113,12 +161,53 @@ if ($customerTrackingEnabled) {
     }
 }
 
-$subtotal = 0.0;
-foreach ($cart as $item) {
-    $subtotal += (float)$item['price'] * (int)$item['qty'];
-}
-
 try {
+    $pdo->beginTransaction();
+
+    $cashSessionId = null;
+    if (strtolower($paymentMethod) === 'cash') {
+        $shiftStmt = $pdo->prepare("SELECT id FROM cash_sessions WHERE branch_id = ? AND user_id = ? AND status = 'open' ORDER BY id DESC LIMIT 1 FOR UPDATE");
+        $shiftStmt->execute([$branchId, $userId]);
+        $cashSessionId = $shiftStmt->fetchColumn();
+        if (!$cashSessionId) {
+            throw new RuntimeException('Open a cash drawer shift before accepting cash payments.');
+        }
+    }
+
+    $subtotal = 0.0;
+    $validatedItems = [];
+    $productStmt = $pdo->prepare('
+        SELECT id, name, price, stock_qty
+        FROM products
+        WHERE id = ? AND branch_id = ?
+        FOR UPDATE
+    ');
+
+    foreach ($cartItems as $productId => $qty) {
+        $productStmt->execute([$productId, $branchId]);
+        $product = $productStmt->fetch();
+
+        if (!$product) {
+            throw new RuntimeException('One or more cart products were not found for this branch.');
+        }
+
+        $stock = (int)$product['stock_qty'];
+        if ($stock < $qty) {
+            throw new RuntimeException('Insufficient stock for ' . $product['name'] . '.');
+        }
+
+        $price = round((float)$product['price'], 2);
+        $lineSubtotal = round($price * $qty, 2);
+        $subtotal = round($subtotal + $lineSubtotal, 2);
+        $validatedItems[] = [
+            'product_id' => (int)$product['id'],
+            'name' => $product['name'],
+            'qty' => $qty,
+            'price' => $price,
+            'subtotal' => $lineSubtotal,
+        ];
+    }
+
     [$discountType, $discountValue, $discountAmount] = calculate_sale_discount(
         $_POST['discount_type'] ?? '',
         (float)($_POST['discount_value'] ?? 0),
@@ -128,44 +217,92 @@ try {
         $seniorDiscountEnabled,
         $pwdDiscountEnabled
     );
-} catch (Throwable $e) {
-    die('Checkout failed: ' . $e->getMessage());
-}
 
-$total = max(0, round($subtotal - $discountAmount, 2));
-
-try {
-    $pdo->beginTransaction();
-    $cashSessionId = null;
-    if (strtolower($paymentMethod) === 'cash') {
-        $shiftStmt = $pdo->prepare("SELECT id FROM cash_sessions WHERE branch_id = ? AND user_id = ? AND status = 'open' ORDER BY id DESC LIMIT 1 FOR UPDATE");
-        $shiftStmt->execute([$branchId, $userId]);
-        $cashSessionId = $shiftStmt->fetchColumn();
-        if (!$cashSessionId) {
-            throw new Exception('Open a cash drawer shift before accepting cash payments.');
-        }
+    if ($discountAmount > $subtotal) {
+        throw new RuntimeException('Discount cannot exceed the sale subtotal.');
     }
-    if ($amountTendered < $total) { throw new Exception('Insufficient payment.'); }
+
+    $total = round($subtotal - $discountAmount, 2);
+    if ($total < 0) {
+        throw new RuntimeException('Sale total cannot be negative.');
+    }
+
+    if ($amountTendered < $total) {
+        throw new RuntimeException('Payment amount must cover the final total.');
+    }
+
     $invoice = 'INV-' . date('YmdHis');
-    $stmt = $pdo->prepare('INSERT INTO sales(invoice_no,branch_id,user_id,customer_id,discount_type,discount_value,discount_amount,total_amount,amount_tendered,change_amount,payment_method,status) VALUES(?,?,?,?,?,?,?,?,?,?,?,"completed")');
-    $stmt->execute([$invoice,$branchId,$userId,$customerId,$discountType,$discountValue,$discountAmount,$total,$amountTendered,$amountTendered-$total,$paymentMethod]);
+    $stmt = $pdo->prepare('
+        INSERT INTO sales(
+            invoice_no, branch_id, user_id, customer_id,
+            discount_type, discount_value, discount_amount,
+            total_amount, amount_tendered, change_amount, payment_method, status
+        )
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "completed")
+    ');
+    $stmt->execute([
+        $invoice,
+        $branchId,
+        $userId,
+        $customerId,
+        $discountType,
+        $discountValue,
+        $discountAmount,
+        $total,
+        $amountTendered,
+        round($amountTendered - $total, 2),
+        $paymentMethod,
+    ]);
     $saleId = (int)$pdo->lastInsertId();
-    foreach ($cart as $item) {
-        $productId = (int)$item['id']; $qty=(int)$item['qty']; $price=(float)$item['price'];
-        $check = $pdo->prepare('SELECT stock_qty FROM products WHERE id=? AND branch_id=? FOR UPDATE');
-        $check->execute([$productId,$branchId]);
-        $stock = (int)$check->fetchColumn();
-        if ($stock < $qty) { throw new Exception('Insufficient stock for product ID '.$productId); }
-        $pdo->prepare('INSERT INTO sale_items(sale_id,product_id,qty,price,subtotal) VALUES(?,?,?,?,?)')->execute([$saleId,$productId,$qty,$price,$qty*$price]);
-        $pdo->prepare('UPDATE products SET stock_qty = stock_qty - ? WHERE id=? AND branch_id=?')->execute([$qty,$productId,$branchId]);
-        $pdo->prepare('INSERT INTO inventory_movements(branch_id,product_id,type,qty,remarks,user_id) VALUES(?, ?, "sale", ?, ?, ?)')->execute([$branchId,$productId,-$qty,'Sold via '.$invoice,$userId]);
+
+    $saleItemStmt = $pdo->prepare('
+        INSERT INTO sale_items(sale_id, product_id, qty, price, subtotal)
+        VALUES(?, ?, ?, ?, ?)
+    ');
+    $stockUpdateStmt = $pdo->prepare('
+        UPDATE products
+        SET stock_qty = stock_qty - ?
+        WHERE id = ? AND branch_id = ? AND stock_qty >= ?
+    ');
+    $movementStmt = $pdo->prepare('
+        INSERT INTO inventory_movements(branch_id, product_id, type, qty, remarks, user_id)
+        VALUES(?, ?, "sale", ?, ?, ?)
+    ');
+
+    foreach ($validatedItems as $item) {
+        $saleItemStmt->execute([
+            $saleId,
+            $item['product_id'],
+            $item['qty'],
+            $item['price'],
+            $item['subtotal'],
+        ]);
+
+        $stockUpdateStmt->execute([$item['qty'], $item['product_id'], $branchId, $item['qty']]);
+        if ($stockUpdateStmt->rowCount() !== 1) {
+            throw new RuntimeException('Stock could not be deducted for ' . $item['name'] . '.');
+        }
+
+        $movementStmt->execute([
+            $branchId,
+            $item['product_id'],
+            -$item['qty'],
+            'Sold via ' . $invoice,
+            $userId,
+        ]);
     }
+
     if ($cashSessionId) {
-        $pdo->prepare('INSERT INTO cash_drawer_transactions(cash_session_id,branch_id,user_id,type,amount,reference,remarks) VALUES(?, ?, ?, "sale_cash", ?, ?, ?)')->execute([$cashSessionId,$branchId,$userId,$total,$invoice,'Cash sale']);
+        $pdo->prepare('
+            INSERT INTO cash_drawer_transactions(cash_session_id, branch_id, user_id, type, amount, reference, remarks)
+            VALUES(?, ?, ?, "sale_cash", ?, ?, ?)
+        ')->execute([$cashSessionId, $branchId, $userId, $total, $invoice, 'Cash sale']);
     }
+
     log_activity($pdo, 'complete_sale', 'pos', 'Completed sale ' . $invoice . ' total: ' . number_format($total, 2) . ' discount: ' . number_format($discountAmount, 2));
     $pdo->commit();
-    header('Location: ' . app_url('sales/receipt.php?id=' . $saleId . '&print=1')); exit;
+    header('Location: ' . app_url('sales/receipt.php?id=' . $saleId . '&print=1'));
+    exit;
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();

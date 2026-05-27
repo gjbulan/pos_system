@@ -56,6 +56,15 @@ $totalSales = (float)$summary['total_sales'];
 $totalDiscounts = (float)$summary['total_discounts'];
 $saleCount = (int)$summary['sale_count'];
 
+$returnsStmt = $pdo->prepare('
+    SELECT COALESCE(SUM(refund_amount), 0) AS total_returns, COUNT(*) AS return_count
+    FROM sales_returns
+    WHERE branch_id = ? AND DATE(created_at) BETWEEN ? AND ?
+');
+$returnsStmt->execute([$branchId, $dateFrom, $dateTo]);
+$returnSummary = $returnsStmt->fetch() ?: ['total_returns' => 0, 'return_count' => 0];
+$totalReturns = (float)$returnSummary['total_returns'];
+
 $expensesStmt = $pdo->prepare('
     SELECT COALESCE(SUM(amount), 0) AS total_expenses, COUNT(*) AS expense_count
     FROM expenses
@@ -76,9 +85,9 @@ $costStmt = $pdo->prepare('
 $costStmt->execute([$branchId, $completedStatus, $dateFrom, $dateTo]);
 $estimatedCost = (float)$costStmt->fetchColumn();
 
-$netRevenue = $totalSales - $totalExpenses;
+$netRevenue = $totalSales - $totalReturns - $totalExpenses;
 $estimatedGrossProfit = $totalSales - $estimatedCost;
-$estimatedNetProfit = $estimatedGrossProfit - $totalExpenses;
+$estimatedNetProfit = $estimatedGrossProfit - $totalReturns - $totalExpenses;
 
 $dailyTotalsByDate = [];
 $dailyLabels = [];
@@ -241,7 +250,7 @@ include __DIR__ . '/../includes/header.php';
             <div class="card-body">
                 <p class="text-muted mb-1">Total Sales</p>
                 <h3>&#8369;<?= number_format($totalSales, 2) ?></h3>
-                <small class="text-muted"><?= $saleCount ?> completed sale<?= $saleCount === 1 ? '' : 's' ?></small>
+                <small class="text-muted"><?= $saleCount ?> completed sale<?= $saleCount === 1 ? '' : 's' ?>; &#8369;<?= number_format($totalReturns, 2) ?> returned</small>
             </div>
         </div>
     </div>
@@ -268,7 +277,7 @@ include __DIR__ . '/../includes/header.php';
             <div class="card-body">
                 <p class="text-muted mb-1">Net Revenue</p>
                 <h3>&#8369;<?= number_format($netRevenue, 2) ?></h3>
-                <small class="text-muted">Sales less expenses</small>
+                <small class="text-muted">Sales less returns and expenses</small>
             </div>
         </div>
     </div>
