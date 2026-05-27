@@ -20,12 +20,16 @@ $allowedKeys = [
     'thermal_printer_width_mm',
     'enable_customer_tracking',
     'require_customer_on_sale',
+    'enable_senior_discount',
+    'enable_pwd_discount',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customerTrackingEnabled = isset($_POST['enable_customer_tracking']) ? '1' : '0';
     $_POST['enable_customer_tracking'] = $customerTrackingEnabled;
     $_POST['require_customer_on_sale'] = $customerTrackingEnabled === '1' && isset($_POST['require_customer_on_sale']) ? '1' : '0';
+    $_POST['enable_senior_discount'] = isset($_POST['enable_senior_discount']) ? '1' : '0';
+    $_POST['enable_pwd_discount'] = isset($_POST['enable_pwd_discount']) ? '1' : '0';
 
     foreach ($allowedKeys as $key) {
         $value = trim($_POST[$key] ?? '');
@@ -47,6 +51,8 @@ foreach ($stmt as $row) {
 
 $customerTrackingEnabled = ($settings['enable_customer_tracking'] ?? '1') === '1';
 $requireCustomerOnSale = $customerTrackingEnabled && ($settings['require_customer_on_sale'] ?? '0') === '1';
+$seniorDiscountEnabled = ($settings['enable_senior_discount'] ?? '1') === '1';
+$pwdDiscountEnabled = ($settings['enable_pwd_discount'] ?? '1') === '1';
 
 function setting_value(array $settings, string $key, string $default = ''): string
 {
@@ -135,6 +141,40 @@ function setting_value(array $settings, string $key, string $default = ''): stri
                     <label class="form-check-label fw-semibold" for="requireCustomerOnSale">Require Customer On Sale</label>
                 </div>
                 <small class="text-muted d-block mt-2">Require a selected customer before checkout when tracking is enabled.</small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="border rounded p-3 h-100">
+                <div class="form-check form-switch">
+                    <input
+                        class="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="enableSeniorDiscount"
+                        name="enable_senior_discount"
+                        value="1"
+                        <?= $seniorDiscountEnabled ? 'checked' : '' ?>
+                    >
+                    <label class="form-check-label fw-semibold" for="enableSeniorDiscount">Enable Senior Discount</label>
+                </div>
+                <small class="text-muted d-block mt-2">Allow Senior discount selection in POS when a customer is selected.</small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="border rounded p-3 h-100">
+                <div class="form-check form-switch">
+                    <input
+                        class="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="enablePwdDiscount"
+                        name="enable_pwd_discount"
+                        value="1"
+                        <?= $pwdDiscountEnabled ? 'checked' : '' ?>
+                    >
+                    <label class="form-check-label fw-semibold" for="enablePwdDiscount">Enable PWD Discount</label>
+                </div>
+                <small class="text-muted d-block mt-2">Allow PWD discount selection in POS when a customer is selected.</small>
             </div>
         </div>
     </div>

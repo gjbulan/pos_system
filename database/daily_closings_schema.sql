@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS daily_closings (
   closed_at TIMESTAMP NULL DEFAULT NULL,
   opening_cash DECIMAL(12,2) NOT NULL DEFAULT 0,
   total_sales DECIMAL(12,2) NOT NULL DEFAULT 0,
+  total_discounts DECIMAL(12,2) NOT NULL DEFAULT 0,
   cash_sales DECIMAL(12,2) NOT NULL DEFAULT 0,
   non_cash_sales DECIMAL(12,2) NOT NULL DEFAULT 0,
   returns_refunds DECIMAL(12,2) NOT NULL DEFAULT 0,

@@ -30,6 +30,30 @@ function receipt_logo_src(string $value): string
     return app_url(ltrim($value, '/'));
 }
 
+function receipt_discount_label(array $sale): string
+{
+    $type = strtolower((string)($sale['discount_type'] ?? ''));
+    $value = (float)($sale['discount_value'] ?? 0);
+
+    if ($type === 'percentage') {
+        return 'Discount (' . number_format($value, 2) . '%)';
+    }
+
+    if ($type === 'fixed') {
+        return 'Discount (Fixed)';
+    }
+
+    if ($type === 'senior') {
+        return 'Senior Discount (' . number_format($value, 2) . '%)';
+    }
+
+    if ($type === 'pwd') {
+        return 'PWD Discount (' . number_format($value, 2) . '%)';
+    }
+
+    return 'Discount';
+}
+
 $settingsStmt = $pdo->query('SELECT setting_key, setting_value FROM settings');
 $settings = [];
 foreach ($settingsStmt as $row) {
@@ -116,13 +140,7 @@ foreach ($items as $item) {
     $refundTotal += (float)$item['returned_amount'];
 }
 
-$discount = 0.0;
-foreach (['discount_amount', 'discount', 'total_discount'] as $discountColumn) {
-    if (array_key_exists($discountColumn, $sale) && (float)$sale[$discountColumn] > 0) {
-        $discount = (float)$sale[$discountColumn];
-        break;
-    }
-}
+$discount = (float)($sale['discount_amount'] ?? 0);
 if ($discount <= 0 && $itemsSubtotal > (float)$sale['total_amount']) {
     $discount = $itemsSubtotal - (float)$sale['total_amount'];
 }
@@ -227,12 +245,12 @@ include __DIR__ . '/../includes/header.php';
             </div>
             <?php if ($discount > 0): ?>
                 <div class="receipt-row">
-                    <span>Discount</span>
+                    <span><?= htmlspecialchars(receipt_discount_label($sale)) ?></span>
                     <strong>-<?= receipt_money($discount, $currency) ?></strong>
                 </div>
             <?php endif; ?>
             <div class="receipt-row total-row">
-                <span>Total</span>
+                <span><?= $discount > 0 ? 'Final Total' : 'Total' ?></span>
                 <strong><?= receipt_money((float)$sale['total_amount'], $currency) ?></strong>
             </div>
             <?php if ($refundTotal > 0): ?>

@@ -152,6 +152,9 @@ CREATE TABLE sales (
   branch_id INT NOT NULL,
   user_id INT NOT NULL,
   customer_id INT NULL,
+  discount_type VARCHAR(20) NULL,
+  discount_value DECIMAL(12,2) NOT NULL DEFAULT 0,
+  discount_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
   total_amount DECIMAL(12,2) NOT NULL,
   amount_tendered DECIMAL(12,2) NOT NULL,
   change_amount DECIMAL(12,2) NOT NULL,
@@ -274,6 +277,7 @@ CREATE TABLE daily_closings (
   closed_at TIMESTAMP NULL DEFAULT NULL,
   opening_cash DECIMAL(12,2) NOT NULL DEFAULT 0,
   total_sales DECIMAL(12,2) NOT NULL DEFAULT 0,
+  total_discounts DECIMAL(12,2) NOT NULL DEFAULT 0,
   cash_sales DECIMAL(12,2) NOT NULL DEFAULT 0,
   non_cash_sales DECIMAL(12,2) NOT NULL DEFAULT 0,
   returns_refunds DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -316,7 +320,9 @@ INSERT INTO settings(setting_key, setting_value) VALUES
 ('low_stock_threshold','5'),
 ('thermal_printer_width_mm','58'),
 ('enable_customer_tracking','1'),
-('require_customer_on_sale','0');
+('require_customer_on_sale','0'),
+('enable_senior_discount','1'),
+('enable_pwd_discount','1');
 
 
 INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES

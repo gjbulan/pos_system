@@ -45,6 +45,8 @@ if (!$closing) {
     exit;
 }
 
+$totalDiscounts = (float)($closing['total_discounts'] ?? 0);
+$grossBeforeDiscount = (float)$closing['total_sales'] + $totalDiscounts;
 $netSales = (float)$closing['total_sales'] - (float)$closing['returns_refunds'];
 
 include __DIR__ . '/../includes/header.php';
@@ -138,25 +140,31 @@ include __DIR__ . '/../includes/header.php';
 </div>
 
 <div class="row g-3 mb-3">
-    <div class="col-md-3">
+    <div class="col-md">
         <div class="metric-card">
-            <div class="metric-label">Gross Sales</div>
-            <div class="metric-value"><?= zread_view_money((float)$closing['total_sales']) ?></div>
+            <div class="metric-label">Gross Before Discount</div>
+            <div class="metric-value"><?= zread_view_money($grossBeforeDiscount) ?></div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md">
+        <div class="metric-card">
+            <div class="metric-label">Discounts</div>
+            <div class="metric-value"><?= zread_view_money($totalDiscounts) ?></div>
+        </div>
+    </div>
+    <div class="col-md">
         <div class="metric-card">
             <div class="metric-label">Returns / Refunds</div>
             <div class="metric-value"><?= zread_view_money((float)$closing['returns_refunds']) ?></div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md">
         <div class="metric-card">
             <div class="metric-label">Net Sales</div>
             <div class="metric-value"><?= zread_view_money($netSales) ?></div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md">
         <div class="metric-card">
             <div class="metric-label">Variance</div>
             <div class="metric-value"><?= zread_view_money((float)$closing['variance']) ?></div>
@@ -175,7 +183,15 @@ include __DIR__ . '/../includes/header.php';
                         <td class="text-end"><?= (int)$closing['sale_count'] ?></td>
                     </tr>
                     <tr>
-                        <th>Gross Sales</th>
+                        <th>Gross Before Discount</th>
+                        <td class="text-end"><?= zread_view_money($grossBeforeDiscount) ?></td>
+                    </tr>
+                    <tr>
+                        <th>Discounts</th>
+                        <td class="text-end"><?= zread_view_money($totalDiscounts) ?></td>
+                    </tr>
+                    <tr>
+                        <th>Net Sales After Discount</th>
                         <td class="text-end"><?= zread_view_money((float)$closing['total_sales']) ?></td>
                     </tr>
                     <tr>

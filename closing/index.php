@@ -37,6 +37,7 @@ function zread_build_summary(PDO $pdo, array $session): array
         SELECT
             COUNT(*) AS sale_count,
             COALESCE(SUM(total_amount), 0) AS total_sales,
+            COALESCE(SUM(discount_amount), 0) AS total_discounts,
             COALESCE(SUM(CASE WHEN LOWER(payment_method) = "cash" THEN total_amount ELSE 0 END), 0) AS cash_sales
         FROM sales
         WHERE branch_id = ?
@@ -45,7 +46,7 @@ function zread_build_summary(PDO $pdo, array $session): array
           AND created_at BETWEEN ? AND ?
     ');
     $salesStmt->execute([$branchId, $userId, $openedAt, $closedAt]);
-    $sales = $salesStmt->fetch() ?: ['sale_count' => 0, 'total_sales' => 0, 'cash_sales' => 0];
+    $sales = $salesStmt->fetch() ?: ['sale_count' => 0, 'total_sales' => 0, 'total_discounts' => 0, 'cash_sales' => 0];
 
     $returnsStmt = $pdo->prepare('
         SELECT COUNT(*) AS return_count, COALESCE(SUM(refund_amount), 0) AS returns_refunds
@@ -92,6 +93,7 @@ function zread_build_summary(PDO $pdo, array $session): array
         'closed_at' => $closedAt,
         'opening_cash' => (float)$session['opening_amount'],
         'total_sales' => $totalSales,
+        'total_discounts' => (float)$sales['total_discounts'],
         'cash_sales' => $cashSales,
         'non_cash_sales' => max(0, $totalSales - $cashSales),
         'returns_refunds' => (float)$returns['returns_refunds'],
@@ -145,11 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $insertStmt = $pdo->prepare('
             INSERT INTO daily_closings(
                 branch_id, user_id, cash_session_id, closing_date, opened_at, closed_at,
-                opening_cash, total_sales, cash_sales, non_cash_sales, returns_refunds, expenses,
+                opening_cash, total_sales, total_discounts, cash_sales, non_cash_sales, returns_refunds, expenses,
                 cash_in, cash_out, expected_cash, actual_cash, variance,
                 sale_count, return_count, expense_count, notes, closed_by
             )
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ');
         $insertStmt->execute([
             $branchId,
@@ -160,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $summary['closed_at'],
             $summary['opening_cash'],
             $summary['total_sales'],
+            $summary['total_discounts'],
             $summary['cash_sales'],
             $summary['non_cash_sales'],
             $summary['returns_refunds'],
@@ -370,6 +373,7 @@ include __DIR__ . '/../includes/header.php';
                     <th>Date</th>
                     <th>Cashier</th>
                     <th class="text-end">Total Sales</th>
+                    <th class="text-end">Discounts</th>
                     <th class="text-end">Returns</th>
                     <th class="text-end">Expected Cash</th>
                     <th class="text-end">Actual Cash</th>
@@ -385,6 +389,7 @@ include __DIR__ . '/../includes/header.php';
                         <td><?= htmlspecialchars($closing['closing_date']) ?></td>
                         <td><?= htmlspecialchars($closing['cashier_name']) ?></td>
                         <td class="text-end"><?= zread_money((float)$closing['total_sales']) ?></td>
+                        <td class="text-end"><?= zread_money((float)$closing['total_discounts']) ?></td>
                         <td class="text-end"><?= zread_money((float)$closing['returns_refunds']) ?></td>
                         <td class="text-end"><?= zread_money((float)$closing['expected_cash']) ?></td>
                         <td class="text-end"><?= zread_money((float)$closing['actual_cash']) ?></td>
@@ -407,7 +412,7 @@ include __DIR__ . '/../includes/header.php';
                 <?php endforeach; ?>
                 <?php if (!$closings): ?>
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-4">No Z-read closings found.</td>
+                        <td colspan="11" class="text-center text-muted py-4">No Z-read closings found.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>

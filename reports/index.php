@@ -45,13 +45,15 @@ if ($dateFrom > $dateTo) {
 $summaryStmt = $pdo->prepare('
     SELECT
         COALESCE(SUM(total_amount), 0) AS total_sales,
+        COALESCE(SUM(discount_amount), 0) AS total_discounts,
         COUNT(*) AS sale_count
     FROM sales
     WHERE branch_id = ? AND status = ? AND DATE(created_at) BETWEEN ? AND ?
 ');
 $summaryStmt->execute([$branchId, $completedStatus, $dateFrom, $dateTo]);
-$summary = $summaryStmt->fetch() ?: ['total_sales' => 0, 'sale_count' => 0];
+$summary = $summaryStmt->fetch() ?: ['total_sales' => 0, 'total_discounts' => 0, 'sale_count' => 0];
 $totalSales = (float)$summary['total_sales'];
+$totalDiscounts = (float)$summary['total_discounts'];
 $saleCount = (int)$summary['sale_count'];
 
 $expensesStmt = $pdo->prepare('
@@ -234,7 +236,7 @@ include __DIR__ . '/../includes/header.php';
 </div>
 
 <div class="row g-4 mb-4">
-    <div class="col-md-3">
+    <div class="col-md">
         <div class="card stat-card h-100">
             <div class="card-body">
                 <p class="text-muted mb-1">Total Sales</p>
@@ -243,7 +245,16 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <p class="text-muted mb-1">Discounts</p>
+                <h3>&#8369;<?= number_format($totalDiscounts, 2) ?></h3>
+                <small class="text-muted">Manual, Senior, and PWD discounts</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md">
         <div class="card stat-card h-100">
             <div class="card-body">
                 <p class="text-muted mb-1">Total Expenses</p>
@@ -252,7 +263,7 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md">
         <div class="card stat-card h-100">
             <div class="card-body">
                 <p class="text-muted mb-1">Net Revenue</p>
@@ -261,7 +272,7 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-md">
         <div class="card stat-card h-100">
             <div class="card-body">
                 <p class="text-muted mb-1">Estimated Net Profit</p>
