@@ -12,11 +12,13 @@ $stmt = $pdo->prepare('
     SELECT
         s.*,
         u.name AS cashier,
+        c.name AS customer_name,
         COALESCE(sold.sold_qty, 0) AS sold_qty,
         COALESCE(returned.returned_qty, 0) AS returned_qty,
         COALESCE(returned.refund_amount, 0) AS refund_amount
     FROM sales s
     LEFT JOIN users u ON u.id = s.user_id
+    LEFT JOIN customers c ON c.id = s.customer_id AND c.branch_id = s.branch_id
     LEFT JOIN (
         SELECT sale_id, SUM(qty) AS sold_qty
         FROM sale_items
@@ -61,6 +63,7 @@ include __DIR__ . '/../includes/header.php';
             <tr>
                 <th>Invoice</th>
                 <th>Cashier</th>
+                <th>Customer</th>
                 <th class="text-end">Total</th>
                 <th class="text-end">Refunded</th>
                 <th>Payment</th>
@@ -81,6 +84,7 @@ include __DIR__ . '/../includes/header.php';
                 <tr>
                     <td><code><?= htmlspecialchars($sale['invoice_no']) ?></code></td>
                     <td><?= htmlspecialchars($sale['cashier'] ?? '') ?></td>
+                    <td><?= htmlspecialchars($sale['customer_name'] ?? 'Walk-in Customer') ?></td>
                     <td class="text-end">&#8369;<?= number_format((float)$sale['total_amount'], 2) ?></td>
                     <td class="text-end">&#8369;<?= number_format((float)$sale['refund_amount'], 2) ?></td>
                     <td><?= htmlspecialchars($sale['payment_method']) ?></td>
@@ -112,7 +116,7 @@ include __DIR__ . '/../includes/header.php';
 
             <?php if (!$sales): ?>
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-4">No sales found for this branch.</td>
+                    <td colspan="9" class="text-center text-muted py-4">No sales found for this branch.</td>
                 </tr>
             <?php endif; ?>
         </tbody>

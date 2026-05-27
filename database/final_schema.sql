@@ -159,7 +159,8 @@ CREATE TABLE sales (
   status ENUM('completed','voided') DEFAULT 'completed',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (branch_id) REFERENCES branches(id),
-  FOREIGN KEY (user_id) REFERENCES users(id)
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
 );
 
 CREATE TABLE sale_items (
@@ -313,7 +314,9 @@ INSERT INTO settings(setting_key, setting_value) VALUES
 ('receipt_footer','Thank you for shopping!'),
 ('tax_rate','0'),
 ('low_stock_threshold','5'),
-('thermal_printer_width_mm','58');
+('thermal_printer_width_mm','58'),
+('enable_customer_tracking','1'),
+('require_customer_on_sale','0');
 
 
 INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES

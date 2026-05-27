@@ -92,9 +92,7 @@ include __DIR__ . '/../includes/header.php';
                     <th>Phone</th>
                     <th>Email</th>
                     <th>Created</th>
-                    <?php if ($canManageCustomers): ?>
-                        <th class="text-end">Actions</th>
-                    <?php endif; ?>
+                    <th class="text-end">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -104,24 +102,27 @@ include __DIR__ . '/../includes/header.php';
                         <td><?= htmlspecialchars($customer['phone'] ?: '-') ?></td>
                         <td><?= htmlspecialchars($customer['email'] ?: '-') ?></td>
                         <td><?= htmlspecialchars(date('M d, Y', strtotime($customer['created_at']))) ?></td>
-                        <?php if ($canManageCustomers): ?>
-                            <td class="text-end">
-                                <div class="btn-group btn-group-sm" role="group" aria-label="Customer actions">
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Customer actions">
+                                <a class="btn btn-outline-secondary" href="<?= app_url('customers/view.php?id=' . (int)$customer['id']) ?>">
+                                    View
+                                </a>
+                                <?php if ($canManageCustomers): ?>
                                     <a class="btn btn-outline-primary" href="<?= app_url('customers/edit.php?id=' . (int)$customer['id']) ?>">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
                                     <a class="btn btn-outline-danger" href="<?= app_url('customers/delete.php?id=' . (int)$customer['id']) ?>">
                                         <i class="bi bi-trash"></i>
                                     </a>
-                                </div>
-                            </td>
-                        <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
 
                 <?php if (!$customers): ?>
                     <tr>
-                        <td colspan="<?= $canManageCustomers ? 5 : 4 ?>" class="text-center text-muted py-4">
+                        <td colspan="5" class="text-center text-muted py-4">
                             No customers found for this branch.
                         </td>
                     </tr>

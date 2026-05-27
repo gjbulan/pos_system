@@ -50,10 +50,12 @@ $saleStmt = $pdo->prepare('
     SELECT
         s.*,
         u.name AS cashier_name,
+        c.name AS customer_name,
         b.name AS branch_name,
         b.code AS branch_code
     FROM sales s
     LEFT JOIN users u ON u.id = s.user_id
+    LEFT JOIN customers c ON c.id = s.customer_id AND c.branch_id = s.branch_id
     LEFT JOIN branches b ON b.id = s.branch_id
     WHERE s.id = ? AND s.branch_id = ?
 ');
@@ -182,6 +184,10 @@ include __DIR__ . '/../includes/header.php';
             <div class="receipt-row">
                 <span>Cashier</span>
                 <strong><?= htmlspecialchars($sale['cashier_name'] ?? 'N/A') ?></strong>
+            </div>
+            <div class="receipt-row">
+                <span>Customer</span>
+                <strong><?= htmlspecialchars($sale['customer_name'] ?? 'Walk-in Customer') ?></strong>
             </div>
             <div class="receipt-row">
                 <span>Payment</span>

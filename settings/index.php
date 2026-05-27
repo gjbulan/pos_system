@@ -18,9 +18,15 @@ $allowedKeys = [
     'tax_rate',
     'low_stock_threshold',
     'thermal_printer_width_mm',
+    'enable_customer_tracking',
+    'require_customer_on_sale',
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $customerTrackingEnabled = isset($_POST['enable_customer_tracking']) ? '1' : '0';
+    $_POST['enable_customer_tracking'] = $customerTrackingEnabled;
+    $_POST['require_customer_on_sale'] = $customerTrackingEnabled === '1' && isset($_POST['require_customer_on_sale']) ? '1' : '0';
+
     foreach ($allowedKeys as $key) {
         $value = trim($_POST[$key] ?? '');
         $stmt = $pdo->prepare('
@@ -38,6 +44,9 @@ $stmt = $pdo->query('SELECT setting_key, setting_value FROM settings');
 foreach ($stmt as $row) {
     $settings[$row['setting_key']] = $row['setting_value'];
 }
+
+$customerTrackingEnabled = ($settings['enable_customer_tracking'] ?? '1') === '1';
+$requireCustomerOnSale = $customerTrackingEnabled && ($settings['require_customer_on_sale'] ?? '0') === '1';
 
 function setting_value(array $settings, string $key, string $default = ''): string
 {
@@ -93,6 +102,41 @@ function setting_value(array $settings, string $key, string $default = ''): stri
             <label class="form-label">Receipt Footer</label>
             <textarea name="receipt_footer" class="form-control" rows="3"><?= setting_value($settings, 'receipt_footer', 'Thank you for shopping!') ?></textarea>
         </div>
+        <div class="col-md-6">
+            <div class="border rounded p-3 h-100">
+                <div class="form-check form-switch">
+                    <input
+                        class="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="enableCustomerTracking"
+                        name="enable_customer_tracking"
+                        value="1"
+                        <?= $customerTrackingEnabled ? 'checked' : '' ?>
+                    >
+                    <label class="form-check-label fw-semibold" for="enableCustomerTracking">Enable Customer Tracking</label>
+                </div>
+                <small class="text-muted d-block mt-2">Show customer selection on POS sales.</small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="border rounded p-3 h-100">
+                <div class="form-check form-switch">
+                    <input
+                        class="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="requireCustomerOnSale"
+                        name="require_customer_on_sale"
+                        value="1"
+                        <?= $requireCustomerOnSale ? 'checked' : '' ?>
+                        <?= $customerTrackingEnabled ? '' : 'disabled' ?>
+                    >
+                    <label class="form-check-label fw-semibold" for="requireCustomerOnSale">Require Customer On Sale</label>
+                </div>
+                <small class="text-muted d-block mt-2">Require a selected customer before checkout when tracking is enabled.</small>
+            </div>
+        </div>
     </div>
     <button class="btn btn-primary mt-4"><i class="bi bi-save"></i> Save Settings</button>
 </form>
@@ -102,5 +146,26 @@ function setting_value(array $settings, string $key, string $default = ''): stri
     <p class="text-muted mb-2">Open any completed sale receipt, then click Print Receipt. Browser print settings should use the matching paper width.</p>
     <a href="<?= app_url('sales/index.php') ?>" class="btn btn-outline-primary btn-sm">Go to Sales History</a>
 </div>
+
+<script>
+const trackingSwitch = document.getElementById('enableCustomerTracking');
+const requireSwitch = document.getElementById('requireCustomerOnSale');
+
+function syncCustomerTrackingControls() {
+    if (!trackingSwitch || !requireSwitch) {
+        return;
+    }
+
+    requireSwitch.disabled = !trackingSwitch.checked;
+    if (!trackingSwitch.checked) {
+        requireSwitch.checked = false;
+    }
+}
+
+if (trackingSwitch) {
+    trackingSwitch.addEventListener('change', syncCustomerTrackingControls);
+}
+syncCustomerTrackingControls();
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>
