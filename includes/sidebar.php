@@ -2,6 +2,7 @@
 $sidebarLinks = [
     ['label' => 'Dashboard', 'path' => 'dashboard/index.php', 'icon' => 'bi-grid', 'permission' => 'dashboard.view'],
     ['label' => 'POS Checkout', 'path' => 'pos/index.php', 'icon' => 'bi-upc-scan', 'permission' => 'pos.access'],
+    ['label' => 'Quotations', 'path' => 'quotations/index.php', 'icon' => 'bi-file-earmark-text', 'permission' => 'quotations.view'],
     ['label' => 'Products', 'path' => 'products/index.php', 'icon' => 'bi-box', 'permission' => 'products.view'],
     ['label' => 'Categories', 'path' => 'categories/index.php', 'icon' => 'bi-tags', 'permission' => 'categories.manage'],
     ['label' => 'Inventory', 'path' => 'inventory/index.php', 'icon' => 'bi-clipboard-data', 'permission' => 'inventory.view'],

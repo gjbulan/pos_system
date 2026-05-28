@@ -211,6 +211,7 @@ function default_permissions(string $role): array
         'dashboard.view',
         'pos.access',
         'sales.view',
+        'quotations.view',
         'products.view',
         'inventory.view',
         'customers.view'
@@ -224,6 +225,7 @@ function default_permissions(string $role): array
             'suppliers.manage',
             'purchases.view',
             'purchases.manage',
+            'quotations.manage',
             'expenses.manage',
             'reports.view',
             'settings.manage',

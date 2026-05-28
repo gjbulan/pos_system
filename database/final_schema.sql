@@ -10,6 +10,8 @@ DROP TABLE IF EXISTS purchase_order_items;
 DROP TABLE IF EXISTS purchase_orders;
 DROP TABLE IF EXISTS sales_return_items;
 DROP TABLE IF EXISTS sales_returns;
+DROP TABLE IF EXISTS quotation_items;
+DROP TABLE IF EXISTS quotations;
 DROP TABLE IF EXISTS sale_items;
 DROP TABLE IF EXISTS sales;
 DROP TABLE IF EXISTS expenses;
@@ -177,6 +179,45 @@ CREATE TABLE sale_items (
   FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
+CREATE TABLE quotations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  branch_id INT NOT NULL,
+  customer_id INT NULL,
+  user_id INT NULL,
+  quote_no VARCHAR(80) NOT NULL,
+  status ENUM('draft','issued','converted','cancelled') NOT NULL DEFAULT 'draft',
+  valid_until DATE NULL,
+  subtotal_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  discount_type VARCHAR(20) NULL,
+  discount_value DECIMAL(12,2) NOT NULL DEFAULT 0,
+  discount_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+  notes TEXT NULL,
+  converted_sale_id INT NULL,
+  converted_at TIMESTAMP NULL DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_branch_quote_no (branch_id, quote_no),
+  KEY idx_quotations_branch_status (branch_id, status),
+  KEY idx_quotations_customer (customer_id),
+  FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE,
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (converted_sale_id) REFERENCES sales(id) ON DELETE SET NULL
+);
+
+CREATE TABLE quotation_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  quotation_id INT NOT NULL,
+  product_id INT NOT NULL,
+  qty INT NOT NULL,
+  price DECIMAL(12,2) NOT NULL,
+  subtotal DECIMAL(12,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (quotation_id) REFERENCES quotations(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
 CREATE TABLE sales_returns (
   id INT AUTO_INCREMENT PRIMARY KEY,
   branch_id INT NOT NULL,
@@ -340,6 +381,8 @@ INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Area Manager', 'suppliers.manage', 1),
 ('Area Manager', 'purchases.view', 1),
 ('Area Manager', 'purchases.manage', 1),
+('Area Manager', 'quotations.view', 1),
+('Area Manager', 'quotations.manage', 1),
 ('Area Manager', 'expenses.manage', 1),
 ('Area Manager', 'reports.view', 1),
 ('Area Manager', 'settings.manage', 1),
@@ -361,6 +404,8 @@ INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Manager', 'suppliers.manage', 1),
 ('Manager', 'purchases.view', 1),
 ('Manager', 'purchases.manage', 1),
+('Manager', 'quotations.view', 1),
+('Manager', 'quotations.manage', 1),
 ('Manager', 'expenses.manage', 1),
 ('Manager', 'reports.view', 1),
 ('Manager', 'settings.manage', 1),
@@ -372,6 +417,7 @@ INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Cashier', 'dashboard.view', 1),
 ('Cashier', 'pos.access', 1),
 ('Cashier', 'sales.view', 1),
+('Cashier', 'quotations.view', 1),
 ('Cashier', 'products.view', 1),
 ('Cashier', 'inventory.view', 1),
 ('Cashier', 'customers.view', 1);

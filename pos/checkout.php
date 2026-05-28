@@ -91,16 +91,30 @@ function calculate_sale_discount(
 
 $branchId = current_branch_id();
 $userId = (int)$_SESSION['user_id'];
-$decodedCart = json_decode($_POST['cart_json'] ?? '[]', true);
-
-if (!is_array($decodedCart)) {
-    die('Checkout failed: Invalid cart data.');
+$quotationIdRaw = $_POST['quotation_id'] ?? 0;
+$quotationId = filter_var($quotationIdRaw, FILTER_VALIDATE_INT);
+if ($quotationId === false || (int)$quotationId < 0) {
+    die('Checkout failed: Invalid quotation reference.');
 }
+$quotationId = (int)$quotationId;
+$cartItems = [];
 
-try {
-    $cartItems = normalize_cart_items($decodedCart);
-} catch (Throwable $e) {
-    die('Checkout failed: ' . $e->getMessage());
+if ($quotationId > 0) {
+    if (!can($pdo, 'quotations.view')) {
+        die('Checkout failed: You do not have permission to convert quotations.');
+    }
+} else {
+    $decodedCart = json_decode($_POST['cart_json'] ?? '[]', true);
+
+    if (!is_array($decodedCart)) {
+        die('Checkout failed: Invalid cart data.');
+    }
+
+    try {
+        $cartItems = normalize_cart_items($decodedCart);
+    } catch (Throwable $e) {
+        die('Checkout failed: ' . $e->getMessage());
+    }
 }
 
 $paymentMethod = trim($_POST['payment_method'] ?? 'Cash');
@@ -139,7 +153,7 @@ $seniorDiscountEnabled = ($posSettings['enable_senior_discount'] ?? '1') === '1'
 $pwdDiscountEnabled = ($posSettings['enable_pwd_discount'] ?? '1') === '1';
 $customerId = null;
 
-if ($customerTrackingEnabled) {
+if ($quotationId <= 0 && $customerTrackingEnabled) {
     $postedCustomerId = (int)($_POST['customer_id'] ?? 0);
 
     if ($postedCustomerId > 0) {
@@ -176,6 +190,7 @@ try {
 
     $subtotal = 0.0;
     $validatedItems = [];
+    $quotation = null;
     $productStmt = $pdo->prepare('
         SELECT id, name, price, stock_qty
         FROM products
@@ -183,40 +198,128 @@ try {
         FOR UPDATE
     ');
 
-    foreach ($cartItems as $productId => $qty) {
-        $productStmt->execute([$productId, $branchId]);
-        $product = $productStmt->fetch();
+    if ($quotationId > 0) {
+        $quotationStmt = $pdo->prepare('
+            SELECT *
+            FROM quotations
+            WHERE id = ? AND branch_id = ?
+            FOR UPDATE
+        ');
+        $quotationStmt->execute([$quotationId, $branchId]);
+        $quotation = $quotationStmt->fetch();
 
-        if (!$product) {
-            throw new RuntimeException('One or more cart products were not found for this branch.');
+        if (!$quotation) {
+            throw new RuntimeException('Quotation was not found for this branch.');
         }
 
-        $stock = (int)$product['stock_qty'];
-        if ($stock < $qty) {
-            throw new RuntimeException('Insufficient stock for ' . $product['name'] . '.');
+        if (!in_array($quotation['status'], ['draft', 'issued'], true)) {
+            throw new RuntimeException('Only draft or issued quotations can be converted.');
         }
 
-        $price = round((float)$product['price'], 2);
-        $lineSubtotal = round($price * $qty, 2);
-        $subtotal = round($subtotal + $lineSubtotal, 2);
-        $validatedItems[] = [
-            'product_id' => (int)$product['id'],
-            'name' => $product['name'],
-            'qty' => $qty,
-            'price' => $price,
-            'subtotal' => $lineSubtotal,
-        ];
+        $customerId = $quotation['customer_id'] !== null ? (int)$quotation['customer_id'] : null;
+        if ($customerId !== null) {
+            $customerStmt = $pdo->prepare('SELECT id FROM customers WHERE id = ? AND branch_id = ? LIMIT 1');
+            $customerStmt->execute([$customerId, $branchId]);
+            if (!$customerStmt->fetchColumn()) {
+                throw new RuntimeException('Quotation customer was not found for this branch.');
+            }
+        }
+
+        if ($requireCustomerOnSale && $customerId === null) {
+            throw new RuntimeException('Customer is required for this sale.');
+        }
+
+        $quoteItemsStmt = $pdo->prepare('
+            SELECT product_id, qty, price
+            FROM quotation_items
+            WHERE quotation_id = ?
+            ORDER BY id
+        ');
+        $quoteItemsStmt->execute([$quotationId]);
+        $quoteItems = $quoteItemsStmt->fetchAll();
+        if (!$quoteItems) {
+            throw new RuntimeException('Quotation has no items to convert.');
+        }
+
+        foreach ($quoteItems as $quoteItem) {
+            $qty = (int)$quoteItem['qty'];
+            if ($qty <= 0) {
+                throw new RuntimeException('Quotation contains an invalid item quantity.');
+            }
+
+            $productStmt->execute([(int)$quoteItem['product_id'], $branchId]);
+            $product = $productStmt->fetch();
+
+            if (!$product) {
+                throw new RuntimeException('One or more quoted products were not found for this branch.');
+            }
+
+            $stock = (int)$product['stock_qty'];
+            if ($stock < $qty) {
+                throw new RuntimeException('Insufficient stock for ' . $product['name'] . '.');
+            }
+
+            $price = round((float)$quoteItem['price'], 2);
+            if ($price < 0) {
+                throw new RuntimeException('Quotation contains an invalid item price.');
+            }
+
+            $lineSubtotal = round($price * $qty, 2);
+            $subtotal = round($subtotal + $lineSubtotal, 2);
+            $validatedItems[] = [
+                'product_id' => (int)$product['id'],
+                'name' => $product['name'],
+                'qty' => $qty,
+                'price' => $price,
+                'subtotal' => $lineSubtotal,
+            ];
+        }
+
+        [$discountType, $discountValue, $discountAmount] = calculate_sale_discount(
+            $quotation['discount_type'] ?? '',
+            (float)($quotation['discount_value'] ?? 0),
+            $subtotal,
+            $customerTrackingEnabled,
+            $customerId,
+            $seniorDiscountEnabled,
+            $pwdDiscountEnabled
+        );
+    } else {
+        foreach ($cartItems as $productId => $qty) {
+            $productStmt->execute([$productId, $branchId]);
+            $product = $productStmt->fetch();
+
+            if (!$product) {
+                throw new RuntimeException('One or more cart products were not found for this branch.');
+            }
+
+            $stock = (int)$product['stock_qty'];
+            if ($stock < $qty) {
+                throw new RuntimeException('Insufficient stock for ' . $product['name'] . '.');
+            }
+
+            $price = round((float)$product['price'], 2);
+            $lineSubtotal = round($price * $qty, 2);
+            $subtotal = round($subtotal + $lineSubtotal, 2);
+            $validatedItems[] = [
+                'product_id' => (int)$product['id'],
+                'name' => $product['name'],
+                'qty' => $qty,
+                'price' => $price,
+                'subtotal' => $lineSubtotal,
+            ];
+        }
+
+        [$discountType, $discountValue, $discountAmount] = calculate_sale_discount(
+            $_POST['discount_type'] ?? '',
+            (float)($_POST['discount_value'] ?? 0),
+            $subtotal,
+            $customerTrackingEnabled,
+            $customerId,
+            $seniorDiscountEnabled,
+            $pwdDiscountEnabled
+        );
     }
-
-    [$discountType, $discountValue, $discountAmount] = calculate_sale_discount(
-        $_POST['discount_type'] ?? '',
-        (float)($_POST['discount_value'] ?? 0),
-        $subtotal,
-        $customerTrackingEnabled,
-        $customerId,
-        $seniorDiscountEnabled,
-        $pwdDiscountEnabled
-    );
 
     if ($discountAmount > $subtotal) {
         throw new RuntimeException('Discount cannot exceed the sale subtotal.');
@@ -287,7 +390,7 @@ try {
             $branchId,
             $item['product_id'],
             -$item['qty'],
-            'Sold via ' . $invoice,
+            'Sold via ' . $invoice . ($quotation ? ' from quotation ' . $quotation['quote_no'] : ''),
             $userId,
         ]);
     }
@@ -299,7 +402,19 @@ try {
         ')->execute([$cashSessionId, $branchId, $userId, $total, $invoice, 'Cash sale']);
     }
 
-    log_activity($pdo, 'complete_sale', 'pos', 'Completed sale ' . $invoice . ' total: ' . number_format($total, 2) . ' discount: ' . number_format($discountAmount, 2));
+    if ($quotation) {
+        $convertedStmt = $pdo->prepare('
+            UPDATE quotations
+            SET status = "converted", converted_sale_id = ?, converted_at = NOW()
+            WHERE id = ? AND branch_id = ? AND status IN ("draft", "issued")
+        ');
+        $convertedStmt->execute([$saleId, $quotationId, $branchId]);
+        if ($convertedStmt->rowCount() !== 1) {
+            throw new RuntimeException('Quotation could not be marked as converted.');
+        }
+    }
+
+    log_activity($pdo, 'complete_sale', 'pos', 'Completed sale ' . $invoice . ' total: ' . number_format($total, 2) . ' discount: ' . number_format($discountAmount, 2) . ($quotation ? ' from quotation ' . $quotation['quote_no'] : ''));
     $pdo->commit();
     header('Location: ' . app_url('sales/receipt.php?id=' . $saleId . '&print=1'));
     exit;
