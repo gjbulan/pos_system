@@ -8,7 +8,7 @@ require_permission($pdo, 'dashboard.view');
 
 $branchId = current_branch_id();
 $today = date('Y-m-d');
-$completedStatus = 'completed';
+$voidedStatus = 'voided';
 
 function chart_json(array $value): string
 {
@@ -19,17 +19,17 @@ function chart_json(array $value): string
 $todaySales = $pdo->prepare('
     SELECT COALESCE(SUM(total_amount), 0) AS total
     FROM sales
-    WHERE branch_id = ? AND DATE(created_at) = ? AND status = ?
+    WHERE branch_id = ? AND DATE(created_at) = ? AND status <> ?
 ');
-$todaySales->execute([$branchId, $today, $completedStatus]);
+$todaySales->execute([$branchId, $today, $voidedStatus]);
 $salesTotal = (float)$todaySales->fetchColumn();
 
 $orders = $pdo->prepare('
     SELECT COUNT(*)
     FROM sales
-    WHERE branch_id = ? AND DATE(created_at) = ?
+    WHERE branch_id = ? AND DATE(created_at) = ? AND status <> ?
 ');
-$orders->execute([$branchId, $today]);
+$orders->execute([$branchId, $today, $voidedStatus]);
 $orderCount = (int)$orders->fetchColumn();
 
 $low = $pdo->prepare('
@@ -63,11 +63,11 @@ $trendDates = array_keys($trendTotalsByDate);
 $salesTrend = $pdo->prepare('
     SELECT DATE(created_at) AS sale_date, COALESCE(SUM(total_amount), 0) AS total
     FROM sales
-    WHERE branch_id = ? AND status = ? AND DATE(created_at) BETWEEN ? AND ?
+    WHERE branch_id = ? AND status <> ? AND DATE(created_at) BETWEEN ? AND ?
     GROUP BY DATE(created_at)
     ORDER BY sale_date
 ');
-$salesTrend->execute([$branchId, $completedStatus, $trendDates[0], $trendDates[count($trendDates) - 1]]);
+$salesTrend->execute([$branchId, $voidedStatus, $trendDates[0], $trendDates[count($trendDates) - 1]]);
 
 foreach ($salesTrend->fetchAll() as $row) {
     if (array_key_exists($row['sale_date'], $trendTotalsByDate)) {
@@ -82,12 +82,12 @@ $topProductsStmt = $pdo->prepare('
     FROM sale_items si
     INNER JOIN sales s ON s.id = si.sale_id
     INNER JOIN products p ON p.id = si.product_id
-    WHERE s.branch_id = ? AND s.status = ?
+    WHERE s.branch_id = ? AND s.status <> ?
     GROUP BY p.id, p.name
     ORDER BY total_qty DESC, total_sales DESC
     LIMIT 5
 ');
-$topProductsStmt->execute([$branchId, $completedStatus]);
+$topProductsStmt->execute([$branchId, $voidedStatus]);
 $topProducts = $topProductsStmt->fetchAll();
 
 $topProductLabels = [];
@@ -105,11 +105,11 @@ if (!$topProductLabels) {
 $paymentStmt = $pdo->prepare('
     SELECT payment_method, COUNT(*) AS sale_count
     FROM sales
-    WHERE branch_id = ? AND status = ?
+    WHERE branch_id = ? AND status <> ?
     GROUP BY payment_method
     ORDER BY sale_count DESC, payment_method ASC
 ');
-$paymentStmt->execute([$branchId, $completedStatus]);
+$paymentStmt->execute([$branchId, $voidedStatus]);
 $paymentRows = $paymentStmt->fetchAll();
 
 $paymentLabels = [];

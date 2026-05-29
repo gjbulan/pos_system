@@ -161,11 +161,15 @@ CREATE TABLE sales (
   amount_tendered DECIMAL(12,2) NOT NULL,
   change_amount DECIMAL(12,2) NOT NULL,
   payment_method VARCHAR(40) NOT NULL,
-  status ENUM('completed','voided') DEFAULT 'completed',
+  status ENUM('completed','void_requested','voided') NOT NULL DEFAULT 'completed',
+  void_reason VARCHAR(255) NULL,
+  voided_by INT NULL,
+  voided_at TIMESTAMP NULL DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (branch_id) REFERENCES branches(id),
   FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL,
+  FOREIGN KEY (voided_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE TABLE sale_items (
@@ -330,6 +334,8 @@ CREATE TABLE daily_closings (
   variance DECIMAL(12,2) NOT NULL DEFAULT 0,
   sale_count INT NOT NULL DEFAULT 0,
   return_count INT NOT NULL DEFAULT 0,
+  void_count INT NOT NULL DEFAULT 0,
+  void_total DECIMAL(12,2) NOT NULL DEFAULT 0,
   expense_count INT NOT NULL DEFAULT 0,
   notes TEXT NULL,
   closed_by INT NULL,
@@ -371,6 +377,8 @@ INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Area Manager', 'dashboard.view', 1),
 ('Area Manager', 'pos.access', 1),
 ('Area Manager', 'sales.view', 1),
+('Area Manager', 'sales.void.request', 1),
+('Area Manager', 'sales.void.approve', 1),
 ('Area Manager', 'products.view', 1),
 ('Area Manager', 'products.manage', 1),
 ('Area Manager', 'categories.view', 1),
@@ -396,6 +404,8 @@ INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Manager', 'dashboard.view', 1),
 ('Manager', 'pos.access', 1),
 ('Manager', 'sales.view', 1),
+('Manager', 'sales.void.request', 1),
+('Manager', 'sales.void.approve', 1),
 ('Manager', 'products.view', 1),
 ('Manager', 'products.manage', 1),
 ('Manager', 'categories.view', 1),
@@ -421,6 +431,7 @@ INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Cashier', 'dashboard.view', 1),
 ('Cashier', 'pos.access', 1),
 ('Cashier', 'sales.view', 1),
+('Cashier', 'sales.void.request', 1),
 ('Cashier', 'quotations.view', 1),
 ('Cashier', 'products.view', 1),
 ('Cashier', 'inventory.view', 1),

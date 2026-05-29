@@ -46,6 +46,7 @@ if (!$closing) {
 }
 
 $totalDiscounts = (float)($closing['total_discounts'] ?? 0);
+$voidTotal = (float)($closing['void_total'] ?? 0);
 $grossBeforeDiscount = (float)$closing['total_sales'] + $totalDiscounts;
 $netSales = (float)$closing['total_sales'] - (float)$closing['returns_refunds'];
 
@@ -160,6 +161,12 @@ include __DIR__ . '/../includes/header.php';
     </div>
     <div class="col-md">
         <div class="metric-card">
+            <div class="metric-label">Voids</div>
+            <div class="metric-value"><?= zread_view_money($voidTotal) ?></div>
+        </div>
+    </div>
+    <div class="col-md">
+        <div class="metric-card">
             <div class="metric-label">Net Sales</div>
             <div class="metric-value"><?= zread_view_money($netSales) ?></div>
         </div>
@@ -209,6 +216,14 @@ include __DIR__ . '/../includes/header.php';
                     <tr>
                         <th>Returns / Refunds</th>
                         <td class="text-end"><?= zread_view_money((float)$closing['returns_refunds']) ?></td>
+                    </tr>
+                    <tr>
+                        <th>Void Count</th>
+                        <td class="text-end"><?= (int)($closing['void_count'] ?? 0) ?></td>
+                    </tr>
+                    <tr>
+                        <th>Voided Sales</th>
+                        <td class="text-end"><?= zread_view_money($voidTotal) ?></td>
                     </tr>
                     <tr>
                         <th>Expense Count</th>

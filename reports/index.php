@@ -7,7 +7,7 @@ require_login();
 require_permission($pdo, 'reports.view');
 
 $branchId = current_branch_id();
-$completedStatus = 'completed';
+$voidedStatus = 'voided';
 $filterError = '';
 
 function valid_report_date(string $date): bool
@@ -48,22 +48,33 @@ $summaryStmt = $pdo->prepare('
         COALESCE(SUM(discount_amount), 0) AS total_discounts,
         COUNT(*) AS sale_count
     FROM sales
-    WHERE branch_id = ? AND status = ? AND DATE(created_at) BETWEEN ? AND ?
+    WHERE branch_id = ? AND status <> ? AND DATE(created_at) BETWEEN ? AND ?
 ');
-$summaryStmt->execute([$branchId, $completedStatus, $dateFrom, $dateTo]);
+$summaryStmt->execute([$branchId, $voidedStatus, $dateFrom, $dateTo]);
 $summary = $summaryStmt->fetch() ?: ['total_sales' => 0, 'total_discounts' => 0, 'sale_count' => 0];
 $totalSales = (float)$summary['total_sales'];
 $totalDiscounts = (float)$summary['total_discounts'];
 $saleCount = (int)$summary['sale_count'];
 
 $returnsStmt = $pdo->prepare('
-    SELECT COALESCE(SUM(refund_amount), 0) AS total_returns, COUNT(*) AS return_count
-    FROM sales_returns
-    WHERE branch_id = ? AND DATE(created_at) BETWEEN ? AND ?
+    SELECT COALESCE(SUM(sr.refund_amount), 0) AS total_returns, COUNT(*) AS return_count
+    FROM sales_returns sr
+    JOIN sales s ON s.id = sr.sale_id
+    WHERE sr.branch_id = ? AND s.status <> ? AND DATE(sr.created_at) BETWEEN ? AND ?
 ');
-$returnsStmt->execute([$branchId, $dateFrom, $dateTo]);
+$returnsStmt->execute([$branchId, $voidedStatus, $dateFrom, $dateTo]);
 $returnSummary = $returnsStmt->fetch() ?: ['total_returns' => 0, 'return_count' => 0];
 $totalReturns = (float)$returnSummary['total_returns'];
+
+$voidsStmt = $pdo->prepare('
+    SELECT COALESCE(SUM(total_amount), 0) AS void_total, COUNT(*) AS void_count
+    FROM sales
+    WHERE branch_id = ? AND status = ? AND voided_at IS NOT NULL AND DATE(voided_at) BETWEEN ? AND ?
+');
+$voidsStmt->execute([$branchId, $voidedStatus, $dateFrom, $dateTo]);
+$voidSummary = $voidsStmt->fetch() ?: ['void_total' => 0, 'void_count' => 0];
+$voidTotal = (float)$voidSummary['void_total'];
+$voidCount = (int)$voidSummary['void_count'];
 
 $expensesStmt = $pdo->prepare('
     SELECT COALESCE(SUM(amount), 0) AS total_expenses, COUNT(*) AS expense_count
@@ -80,9 +91,9 @@ $costStmt = $pdo->prepare('
     FROM sale_items si
     INNER JOIN sales s ON s.id = si.sale_id
     INNER JOIN products p ON p.id = si.product_id
-    WHERE s.branch_id = ? AND s.status = ? AND DATE(s.created_at) BETWEEN ? AND ?
+    WHERE s.branch_id = ? AND s.status <> ? AND DATE(s.created_at) BETWEEN ? AND ?
 ');
-$costStmt->execute([$branchId, $completedStatus, $dateFrom, $dateTo]);
+$costStmt->execute([$branchId, $voidedStatus, $dateFrom, $dateTo]);
 $estimatedCost = (float)$costStmt->fetchColumn();
 
 $netRevenue = $totalSales - $totalReturns - $totalExpenses;
@@ -104,11 +115,11 @@ while ($cursor <= $end) {
 $salesByDayStmt = $pdo->prepare('
     SELECT DATE(created_at) AS sale_date, COALESCE(SUM(total_amount), 0) AS total
     FROM sales
-    WHERE branch_id = ? AND status = ? AND DATE(created_at) BETWEEN ? AND ?
+    WHERE branch_id = ? AND status <> ? AND DATE(created_at) BETWEEN ? AND ?
     GROUP BY DATE(created_at)
     ORDER BY sale_date
 ');
-$salesByDayStmt->execute([$branchId, $completedStatus, $dateFrom, $dateTo]);
+$salesByDayStmt->execute([$branchId, $voidedStatus, $dateFrom, $dateTo]);
 
 foreach ($salesByDayStmt->fetchAll() as $row) {
     if (array_key_exists($row['sale_date'], $dailyTotalsByDate)) {
@@ -126,12 +137,12 @@ $topProductsStmt = $pdo->prepare('
     FROM sale_items si
     INNER JOIN sales s ON s.id = si.sale_id
     INNER JOIN products p ON p.id = si.product_id
-    WHERE s.branch_id = ? AND s.status = ? AND DATE(s.created_at) BETWEEN ? AND ?
+    WHERE s.branch_id = ? AND s.status <> ? AND DATE(s.created_at) BETWEEN ? AND ?
     GROUP BY p.id, p.name
     ORDER BY total_qty DESC, total_sales DESC
     LIMIT 10
 ');
-$topProductsStmt->execute([$branchId, $completedStatus, $dateFrom, $dateTo]);
+$topProductsStmt->execute([$branchId, $voidedStatus, $dateFrom, $dateTo]);
 $topProducts = $topProductsStmt->fetchAll();
 
 $topProductLabels = [];
@@ -152,11 +163,11 @@ $paymentStmt = $pdo->prepare('
         COUNT(*) AS sale_count,
         COALESCE(SUM(total_amount), 0) AS total_sales
     FROM sales
-    WHERE branch_id = ? AND status = ? AND DATE(created_at) BETWEEN ? AND ?
+    WHERE branch_id = ? AND status <> ? AND DATE(created_at) BETWEEN ? AND ?
     GROUP BY payment_method
     ORDER BY total_sales DESC, payment_method ASC
 ');
-$paymentStmt->execute([$branchId, $completedStatus, $dateFrom, $dateTo]);
+$paymentStmt->execute([$branchId, $voidedStatus, $dateFrom, $dateTo]);
 $payments = $paymentStmt->fetchAll();
 
 $paymentLabels = [];
@@ -178,12 +189,12 @@ $cashierStmt = $pdo->prepare('
         COALESCE(SUM(s.total_amount), 0) AS total_sales
     FROM sales s
     LEFT JOIN users u ON u.id = s.user_id
-    WHERE s.branch_id = ? AND s.status = ? AND DATE(s.created_at) BETWEEN ? AND ?
+    WHERE s.branch_id = ? AND s.status <> ? AND DATE(s.created_at) BETWEEN ? AND ?
     GROUP BY s.user_id, u.name
     ORDER BY total_sales DESC, sale_count DESC
     LIMIT 10
 ');
-$cashierStmt->execute([$branchId, $completedStatus, $dateFrom, $dateTo]);
+$cashierStmt->execute([$branchId, $voidedStatus, $dateFrom, $dateTo]);
 $cashiers = $cashierStmt->fetchAll();
 
 $cashierLabels = [];
@@ -250,7 +261,7 @@ include __DIR__ . '/../includes/header.php';
             <div class="card-body">
                 <p class="text-muted mb-1">Total Sales</p>
                 <h3>&#8369;<?= number_format($totalSales, 2) ?></h3>
-                <small class="text-muted"><?= $saleCount ?> completed sale<?= $saleCount === 1 ? '' : 's' ?>; &#8369;<?= number_format($totalReturns, 2) ?> returned</small>
+                <small class="text-muted"><?= $saleCount ?> non-void sale<?= $saleCount === 1 ? '' : 's' ?>; &#8369;<?= number_format($totalReturns, 2) ?> returned</small>
             </div>
         </div>
     </div>
@@ -260,6 +271,15 @@ include __DIR__ . '/../includes/header.php';
                 <p class="text-muted mb-1">Discounts</p>
                 <h3>&#8369;<?= number_format($totalDiscounts, 2) ?></h3>
                 <small class="text-muted">Manual, Senior, and PWD discounts</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <p class="text-muted mb-1">Voids</p>
+                <h3>&#8369;<?= number_format($voidTotal, 2) ?></h3>
+                <small class="text-muted"><?= $voidCount ?> approved void<?= $voidCount === 1 ? '' : 's' ?> excluded from sales</small>
             </div>
         </div>
     </div>

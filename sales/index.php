@@ -7,6 +7,8 @@ require_login();
 require_permission($pdo, 'sales.view');
 
 $branchId = current_branch_id();
+$canRequestVoid = can($pdo, 'sales.void.request');
+$canApproveVoid = can($pdo, 'sales.void.approve');
 
 $stmt = $pdo->prepare('
     SELECT
@@ -47,15 +49,36 @@ include __DIR__ . '/../includes/header.php';
     </div>
 <?php endif; ?>
 
+<?php if (isset($_GET['void_requested'])): ?>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        Void request submitted for approval.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
+<?php if (isset($_GET['voided'])): ?>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        Sale void approved and stock restored.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
 <div class="table-card">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
         <div>
             <h5 class="mb-0">Sales History</h5>
             <small class="text-muted">Completed sales, receipts, returns, and refunds for this branch.</small>
         </div>
-        <a class="btn btn-outline-primary btn-sm" href="<?= app_url('sales/returns.php') ?>">
-            <i class="bi bi-arrow-counterclockwise"></i> Return History
-        </a>
+        <div class="btn-group btn-group-sm">
+            <a class="btn btn-outline-primary" href="<?= app_url('sales/returns.php') ?>">
+                <i class="bi bi-arrow-counterclockwise"></i> Return History
+            </a>
+            <?php if ($canRequestVoid || $canApproveVoid): ?>
+                <a class="btn btn-outline-danger" href="<?= app_url('sales/voids.php') ?>">
+                    <i class="bi bi-x-circle"></i> Void History
+                </a>
+            <?php endif; ?>
+        </div>
     </div>
 
     <table class="table align-middle">
@@ -79,7 +102,9 @@ include __DIR__ . '/../includes/header.php';
                 $returnedQty = (int)$sale['returned_qty'];
                 $isFullyReturned = $soldQty > 0 && $returnedQty >= $soldQty;
                 $hasReturns = $returnedQty > 0;
-                $canReturn = $sale['status'] !== 'voided' && !$isFullyReturned;
+                $canReturn = $sale['status'] === 'completed' && !$isFullyReturned;
+                $canRequestThisVoid = $canRequestVoid && $sale['status'] === 'completed' && !$hasReturns;
+                $canApproveThisVoid = $canApproveVoid && in_array($sale['status'], ['completed', 'void_requested'], true) && !$hasReturns;
                 ?>
                 <tr>
                     <td><code><?= htmlspecialchars($sale['invoice_no']) ?></code></td>
@@ -91,6 +116,8 @@ include __DIR__ . '/../includes/header.php';
                     <td>
                         <?php if ($sale['status'] === 'voided'): ?>
                             <span class="badge text-bg-secondary">voided</span>
+                        <?php elseif ($sale['status'] === 'void_requested'): ?>
+                            <span class="badge text-bg-warning">void requested</span>
                         <?php elseif ($isFullyReturned): ?>
                             <span class="badge text-bg-warning">returned</span>
                         <?php elseif ($hasReturns): ?>
@@ -108,6 +135,15 @@ include __DIR__ . '/../includes/header.php';
                                 <a class="btn btn-outline-warning" href="<?= app_url('sales/return.php?id=' . (int)$sale['id']) ?>">Return</a>
                             <?php else: ?>
                                 <button class="btn btn-outline-secondary" type="button" disabled>Return</button>
+                            <?php endif; ?>
+                            <?php if ($canApproveThisVoid): ?>
+                                <a class="btn btn-outline-danger" href="<?= app_url('sales/void.php?id=' . (int)$sale['id'] . '&action=approve') ?>">
+                                    <?= $sale['status'] === 'void_requested' ? 'Approve Void' : 'Void' ?>
+                                </a>
+                            <?php elseif ($canRequestThisVoid): ?>
+                                <a class="btn btn-outline-danger" href="<?= app_url('sales/void.php?id=' . (int)$sale['id'] . '&action=request') ?>">Request Void</a>
+                            <?php elseif ($sale['status'] === 'void_requested'): ?>
+                                <button class="btn btn-outline-secondary" type="button" disabled>Void Requested</button>
                             <?php endif; ?>
                         </div>
                     </td>

@@ -42,7 +42,7 @@ function zread_build_summary(PDO $pdo, array $session): array
         FROM sales
         WHERE branch_id = ?
           AND user_id = ?
-          AND status = "completed"
+          AND status <> "voided"
           AND created_at BETWEEN ? AND ?
     ');
     $salesStmt->execute([$branchId, $userId, $openedAt, $closedAt]);
@@ -57,6 +57,17 @@ function zread_build_summary(PDO $pdo, array $session): array
     ');
     $returnsStmt->execute([$branchId, $userId, $openedAt, $closedAt]);
     $returns = $returnsStmt->fetch() ?: ['return_count' => 0, 'returns_refunds' => 0];
+
+    $voidStmt = $pdo->prepare('
+        SELECT COUNT(*) AS void_count, COALESCE(SUM(total_amount), 0) AS void_total
+        FROM sales
+        WHERE branch_id = ?
+          AND user_id = ?
+          AND status = "voided"
+          AND created_at BETWEEN ? AND ?
+    ');
+    $voidStmt->execute([$branchId, $userId, $openedAt, $closedAt]);
+    $voids = $voidStmt->fetch() ?: ['void_count' => 0, 'void_total' => 0];
 
     $expensesStmt = $pdo->prepare('
         SELECT COUNT(*) AS expense_count, COALESCE(SUM(amount), 0) AS expenses
@@ -105,6 +116,8 @@ function zread_build_summary(PDO $pdo, array $session): array
         'variance' => $session['variance_amount'] !== null ? (float)$session['variance_amount'] : ($actualCash - $expectedCash),
         'sale_count' => (int)$sales['sale_count'],
         'return_count' => (int)$returns['return_count'],
+        'void_count' => (int)$voids['void_count'],
+        'void_total' => (float)$voids['void_total'],
         'expense_count' => (int)$expenses['expense_count'],
     ];
 }
@@ -149,9 +162,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 branch_id, user_id, cash_session_id, closing_date, opened_at, closed_at,
                 opening_cash, total_sales, total_discounts, cash_sales, non_cash_sales, returns_refunds, expenses,
                 cash_in, cash_out, expected_cash, actual_cash, variance,
-                sale_count, return_count, expense_count, notes, closed_by
+                sale_count, return_count, void_count, void_total, expense_count, notes, closed_by
             )
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ');
         $insertStmt->execute([
             $branchId,
@@ -174,6 +187,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $summary['variance'],
             $summary['sale_count'],
             $summary['return_count'],
+            $summary['void_count'],
+            $summary['void_total'],
             $summary['expense_count'],
             $notes !== '' ? $notes : null,
             $currentUserId ?: null,
@@ -375,6 +390,7 @@ include __DIR__ . '/../includes/header.php';
                     <th class="text-end">Total Sales</th>
                     <th class="text-end">Discounts</th>
                     <th class="text-end">Returns</th>
+                    <th class="text-end">Voids</th>
                     <th class="text-end">Expected Cash</th>
                     <th class="text-end">Actual Cash</th>
                     <th class="text-end">Variance</th>
@@ -391,6 +407,7 @@ include __DIR__ . '/../includes/header.php';
                         <td class="text-end"><?= zread_money((float)$closing['total_sales']) ?></td>
                         <td class="text-end"><?= zread_money((float)$closing['total_discounts']) ?></td>
                         <td class="text-end"><?= zread_money((float)$closing['returns_refunds']) ?></td>
+                        <td class="text-end"><?= zread_money((float)($closing['void_total'] ?? 0)) ?></td>
                         <td class="text-end"><?= zread_money((float)$closing['expected_cash']) ?></td>
                         <td class="text-end"><?= zread_money((float)$closing['actual_cash']) ?></td>
                         <td class="text-end"><?= zread_money((float)$closing['variance']) ?></td>
@@ -412,7 +429,7 @@ include __DIR__ . '/../includes/header.php';
                 <?php endforeach; ?>
                 <?php if (!$closings): ?>
                     <tr>
-                        <td colspan="11" class="text-center text-muted py-4">No Z-read closings found.</td>
+                        <td colspan="12" class="text-center text-muted py-4">No Z-read closings found.</td>
                     </tr>
                 <?php endif; ?>
             </tbody>

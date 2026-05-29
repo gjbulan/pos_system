@@ -211,6 +211,17 @@ include __DIR__ . '/../includes/header.php';
                 <span>Payment</span>
                 <strong><?= htmlspecialchars($sale['payment_method']) ?></strong>
             </div>
+            <?php if ($sale['status'] === 'voided'): ?>
+                <div class="receipt-row">
+                    <span>Status</span>
+                    <strong>VOIDED</strong>
+                </div>
+            <?php elseif ($sale['status'] === 'void_requested'): ?>
+                <div class="receipt-row">
+                    <span>Status</span>
+                    <strong>VOID REQUESTED</strong>
+                </div>
+            <?php endif; ?>
         </div>
 
         <div class="receipt-line"></div>
@@ -284,6 +295,15 @@ include __DIR__ . '/../includes/header.php';
                 <div class="receipt-note"><?= htmlspecialchars($return['reason']) ?></div>
             <?php endforeach; ?>
             <div class="receipt-note">Total returned units: <?= $returnedQty ?></div>
+        <?php endif; ?>
+
+        <?php if ($sale['status'] === 'voided'): ?>
+            <div class="receipt-line"></div>
+            <div class="receipt-section-title">VOIDED SALE</div>
+            <div class="receipt-note"><?= htmlspecialchars($sale['void_reason'] ?? 'No reason recorded') ?></div>
+            <?php if (!empty($sale['voided_at'])): ?>
+                <div class="receipt-note">Voided: <?= htmlspecialchars(date('M d, Y h:i A', strtotime($sale['voided_at']))) ?></div>
+            <?php endif; ?>
         <?php endif; ?>
 
         <div class="receipt-line"></div>

@@ -216,6 +216,7 @@ function default_permissions(string $role): array
         'dashboard.view',
         'pos.access',
         'sales.view',
+        'sales.void.request',
         'quotations.view',
         'products.view',
         'inventory.view',
@@ -224,6 +225,7 @@ function default_permissions(string $role): array
 
     if (in_array($role, ['Area Manager', 'Manager'], true)) {
         return array_merge($permissions, [
+            'sales.void.approve',
             'products.manage',
             'categories.view',
             'categories.manage',

@@ -109,8 +109,8 @@ if (!$sale) {
 $items = get_sale_items_for_return($pdo, $branchId, $saleId);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($sale['status'] === 'voided') {
-        $errors[] = 'Voided sales cannot be returned.';
+    if (in_array($sale['status'], ['voided', 'void_requested'], true)) {
+        $errors[] = 'Voided or pending-void sales cannot be returned.';
     }
 
     if ($reason === '') {
@@ -155,8 +155,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Sale was not found for this branch.');
             }
 
-            if ($lockedSale['status'] === 'voided') {
-                throw new RuntimeException('Voided sales cannot be returned.');
+            if (in_array($lockedSale['status'], ['voided', 'void_requested'], true)) {
+                throw new RuntimeException('Voided or pending-void sales cannot be returned.');
             }
 
             $lockedItems = get_locked_sale_items_for_return($pdo, $branchId, $saleId);
@@ -313,8 +313,8 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
-<?php if ($sale['status'] === 'voided'): ?>
-    <div class="alert alert-warning">Voided sales cannot be returned.</div>
+<?php if (in_array($sale['status'], ['voided', 'void_requested'], true)): ?>
+    <div class="alert alert-warning">Voided or pending-void sales cannot be returned.</div>
 <?php endif; ?>
 
 <?php if ($errors): ?>
@@ -363,7 +363,7 @@ include __DIR__ . '/../includes/header.php';
                     value="<?= htmlspecialchars($reason) ?>"
                     placeholder="Required reason for return/refund"
                     required
-                    <?= $sale['status'] === 'voided' ? 'disabled' : '' ?>
+                    <?= in_array($sale['status'], ['voided', 'void_requested'], true) ? 'disabled' : '' ?>
                 >
             </div>
 
@@ -404,7 +404,7 @@ include __DIR__ . '/../includes/header.php';
                                     min="0"
                                     max="<?= $availableQty ?>"
                                     value="<?= htmlspecialchars($_POST['return_qty'][$item['sale_item_id']] ?? '0') ?>"
-                                    <?= $availableQty <= 0 || $sale['status'] === 'voided' ? 'disabled' : '' ?>
+                                    <?= $availableQty <= 0 || in_array($sale['status'], ['voided', 'void_requested'], true) ? 'disabled' : '' ?>
                                 >
                             </td>
                         </tr>
@@ -412,7 +412,7 @@ include __DIR__ . '/../includes/header.php';
                 </tbody>
             </table>
 
-            <button class="btn btn-warning" <?= $sale['status'] === 'voided' ? 'disabled' : '' ?> onclick="return confirm('Process this return and restore stock?');">
+            <button class="btn btn-warning" <?= in_array($sale['status'], ['voided', 'void_requested'], true) ? 'disabled' : '' ?> onclick="return confirm('Process this return and restore stock?');">
                 <i class="bi bi-arrow-counterclockwise"></i> Process Return
             </button>
         </form>
