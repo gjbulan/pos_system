@@ -7,7 +7,7 @@ require_permission($pdo, 'permissions.manage');
 
 $title = 'User Permissions';
 
-$roles = ['Admin', 'Area Manager', 'Manager', 'Cashier'];
+$roles = valid_user_roles();
 
 $permissions = [
     'dashboard.view'       => 'View dashboard',
@@ -15,11 +15,13 @@ $permissions = [
     'sales.view'           => 'View sales history',
     'products.view'        => 'View products',
     'products.manage'      => 'Manage products',
+    'categories.view'      => 'View categories',
     'categories.manage'    => 'Manage categories',
     'inventory.view'       => 'View inventory',
     'inventory.manage'     => 'Manage inventory / stock in',
     'customers.view'       => 'View customers',
     'customers.manage'     => 'Manage customers',
+    'suppliers.view'       => 'View suppliers',
     'suppliers.manage'     => 'Manage suppliers',
     'purchases.view'       => 'View purchase orders',
     'purchases.manage'     => 'Create and receive purchase orders',
@@ -111,7 +113,7 @@ include __DIR__ . '/../includes/header.php';
     <form method="post" class="card shadow-sm border-0">
         <div class="card-body">
             <div class="alert alert-info mb-4">
-                Admin always has full access. Configure Area Manager, Manager, and Cashier permissions below.
+                Admin always has full access. Configure operational role permissions below.
             </div>
 
             <div class="table-responsive">

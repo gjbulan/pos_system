@@ -39,7 +39,7 @@ CREATE TABLE users (
   name VARCHAR(120) NOT NULL,
   username VARCHAR(80) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
-  role ENUM('Admin','Area Manager','Manager','Cashier') NOT NULL DEFAULT 'Cashier',
+  role ENUM('Admin','Area Manager','Manager','Cashier','Inventory Clerk','Purchasing Staff') NOT NULL DEFAULT 'Cashier',
   is_active TINYINT(1) DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE SET NULL
@@ -47,7 +47,7 @@ CREATE TABLE users (
 
 CREATE TABLE role_permissions (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  role_name ENUM('Admin','Area Manager','Manager','Cashier') NOT NULL,
+  role_name ENUM('Admin','Area Manager','Manager','Cashier','Inventory Clerk','Purchasing Staff') NOT NULL,
   permission_key VARCHAR(100) NOT NULL,
   is_allowed TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -373,11 +373,13 @@ INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Area Manager', 'sales.view', 1),
 ('Area Manager', 'products.view', 1),
 ('Area Manager', 'products.manage', 1),
+('Area Manager', 'categories.view', 1),
 ('Area Manager', 'categories.manage', 1),
 ('Area Manager', 'inventory.view', 1),
 ('Area Manager', 'inventory.manage', 1),
 ('Area Manager', 'customers.view', 1),
 ('Area Manager', 'customers.manage', 1),
+('Area Manager', 'suppliers.view', 1),
 ('Area Manager', 'suppliers.manage', 1),
 ('Area Manager', 'purchases.view', 1),
 ('Area Manager', 'purchases.manage', 1),
@@ -396,11 +398,13 @@ INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Manager', 'sales.view', 1),
 ('Manager', 'products.view', 1),
 ('Manager', 'products.manage', 1),
+('Manager', 'categories.view', 1),
 ('Manager', 'categories.manage', 1),
 ('Manager', 'inventory.view', 1),
 ('Manager', 'inventory.manage', 1),
 ('Manager', 'customers.view', 1),
 ('Manager', 'customers.manage', 1),
+('Manager', 'suppliers.view', 1),
 ('Manager', 'suppliers.manage', 1),
 ('Manager', 'purchases.view', 1),
 ('Manager', 'purchases.manage', 1),
@@ -420,7 +424,20 @@ INSERT INTO role_permissions(role_name, permission_key, is_allowed) VALUES
 ('Cashier', 'quotations.view', 1),
 ('Cashier', 'products.view', 1),
 ('Cashier', 'inventory.view', 1),
-('Cashier', 'customers.view', 1);
+('Cashier', 'customers.view', 1),
+('Inventory Clerk', 'dashboard.view', 1),
+('Inventory Clerk', 'products.view', 1),
+('Inventory Clerk', 'categories.view', 1),
+('Inventory Clerk', 'inventory.view', 1),
+('Inventory Clerk', 'inventory.manage', 1),
+('Inventory Clerk', 'reports.view', 1),
+('Purchasing Staff', 'dashboard.view', 1),
+('Purchasing Staff', 'suppliers.view', 1),
+('Purchasing Staff', 'suppliers.manage', 1),
+('Purchasing Staff', 'purchases.view', 1),
+('Purchasing Staff', 'purchases.manage', 1),
+('Purchasing Staff', 'inventory.view', 1),
+('Purchasing Staff', 'reports.view', 1);
 
 INSERT INTO audit_logs(branch_id, user_id, action, module, details, ip_address)
 VALUES (1, 1, 'seed', 'system', 'Initial Phase 15 database seed with audit logs, cash drawer support, and role permissions.', '127.0.0.1');

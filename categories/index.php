@@ -4,9 +4,10 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../auth/session.php';
 
 require_login();
-require_permission($pdo, 'categories.manage');
+require_permission($pdo, 'categories.view');
 
 $branchId = current_branch_id();
+$canManageCategories = can($pdo, 'categories.manage');
 $errors = [];
 $oldName = '';
 
@@ -28,6 +29,10 @@ function category_name_exists(PDO $pdo, int $branchId, string $name, ?int $exclu
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!$canManageCategories) {
+        require_permission($pdo, 'categories.manage');
+    }
+
     $oldName = trim($_POST['name'] ?? '');
 
     if ($oldName === '') {
@@ -46,6 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if (isset($_GET['delete'])) {
+    if (!$canManageCategories) {
+        require_permission($pdo, 'categories.manage');
+    }
+
     $stmt = $pdo->prepare('DELETE FROM categories WHERE branch_id = ? AND id = ?');
     $stmt->execute([$branchId, (int)$_GET['delete']]);
     redirect_to('categories/index.php?deleted=1');
@@ -94,27 +103,31 @@ include __DIR__ . '/../includes/header.php';
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
         <div>
             <h5 class="mb-0">Categories</h5>
-            <small class="text-muted">Manage product categories for the current branch.</small>
+            <small class="text-muted">Product categories for the current branch.</small>
         </div>
         <span class="badge text-bg-light"><?= count($categories) ?> shown</span>
     </div>
 
-    <form method="post" action="<?= app_url('categories/index.php') ?>" class="row g-2 align-items-end mb-3">
-        <div class="col-md-9">
-            <label class="form-label">Category Name</label>
-            <input class="form-control" name="name" placeholder="Category name" value="<?= htmlspecialchars($oldName) ?>" required maxlength="120">
-        </div>
-        <div class="col-md-3 d-grid">
-            <button class="btn btn-primary">Add</button>
-        </div>
-    </form>
+    <?php if ($canManageCategories): ?>
+        <form method="post" action="<?= app_url('categories/index.php') ?>" class="row g-2 align-items-end mb-3">
+            <div class="col-md-9">
+                <label class="form-label">Category Name</label>
+                <input class="form-control" name="name" placeholder="Category name" value="<?= htmlspecialchars($oldName) ?>" required maxlength="120">
+            </div>
+            <div class="col-md-3 d-grid">
+                <button class="btn btn-primary">Add</button>
+            </div>
+        </form>
+    <?php endif; ?>
 
     <table class="table align-middle">
         <thead>
             <tr>
                 <th>Name</th>
                 <th>Created</th>
-                <th class="text-end">Actions</th>
+                <?php if ($canManageCategories): ?>
+                    <th class="text-end">Actions</th>
+                <?php endif; ?>
             </tr>
         </thead>
         <tbody>
@@ -122,22 +135,24 @@ include __DIR__ . '/../includes/header.php';
                 <tr>
                     <td class="fw-semibold"><?= htmlspecialchars($category['name']) ?></td>
                     <td><?= htmlspecialchars(date('M d, Y', strtotime($category['created_at']))) ?></td>
-                    <td class="text-end">
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Category actions">
-                            <a class="btn btn-outline-primary" href="<?= app_url('categories/edit.php?id=' . (int)$category['id']) ?>">
-                                <i class="bi bi-pencil-square"></i>
-                            </a>
-                            <a class="btn btn-outline-danger" href="<?= app_url('categories/index.php?delete=' . (int)$category['id']) ?>" onclick="return confirm('Delete category?')">
-                                <i class="bi bi-trash"></i>
-                            </a>
-                        </div>
-                    </td>
+                    <?php if ($canManageCategories): ?>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Category actions">
+                                <a class="btn btn-outline-primary" href="<?= app_url('categories/edit.php?id=' . (int)$category['id']) ?>">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                                <a class="btn btn-outline-danger" href="<?= app_url('categories/index.php?delete=' . (int)$category['id']) ?>" onclick="return confirm('Delete category?')">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    <?php endif; ?>
                 </tr>
             <?php endforeach; ?>
 
             <?php if (!$categories): ?>
                 <tr>
-                    <td colspan="3" class="text-center text-muted py-4">
+                    <td colspan="<?= $canManageCategories ? 3 : 2 ?>" class="text-center text-muted py-4">
                         No categories found for this branch.
                     </td>
                 </tr>

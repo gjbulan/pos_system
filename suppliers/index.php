@@ -4,9 +4,10 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../auth/session.php';
 
 require_login();
-require_permission($pdo, 'suppliers.manage');
+require_permission($pdo, 'suppliers.view');
 
 $branchId = current_branch_id();
+$canManageSuppliers = can($pdo, 'suppliers.manage');
 $search = trim($_GET['q'] ?? '');
 
 $where = ['branch_id = ?'];
@@ -41,10 +42,12 @@ include __DIR__ . '/../includes/header.php';
         <h4 class="mb-0">Suppliers</h4>
         <small class="text-muted">Manage supplier contacts for the current branch.</small>
     </div>
-    <a class="btn btn-primary" href="<?= app_url('suppliers/add.php') ?>">
-        <i class="bi bi-plus-lg me-1"></i>
-        Add Supplier
-    </a>
+    <?php if ($canManageSuppliers): ?>
+        <a class="btn btn-primary" href="<?= app_url('suppliers/add.php') ?>">
+            <i class="bi bi-plus-lg me-1"></i>
+            Add Supplier
+        </a>
+    <?php endif; ?>
 </div>
 
 <?php if ($flash): ?>
@@ -89,7 +92,9 @@ include __DIR__ . '/../includes/header.php';
                     <th>Phone</th>
                     <th>Email</th>
                     <th>Created</th>
-                    <th class="text-end">Actions</th>
+                    <?php if ($canManageSuppliers): ?>
+                        <th class="text-end">Actions</th>
+                    <?php endif; ?>
                 </tr>
             </thead>
             <tbody>
@@ -99,22 +104,24 @@ include __DIR__ . '/../includes/header.php';
                         <td><?= htmlspecialchars($supplier['phone'] ?: '-') ?></td>
                         <td><?= htmlspecialchars($supplier['email'] ?: '-') ?></td>
                         <td><?= htmlspecialchars(date('M d, Y', strtotime($supplier['created_at']))) ?></td>
-                        <td class="text-end">
-                            <div class="btn-group btn-group-sm" role="group" aria-label="Supplier actions">
-                                <a class="btn btn-outline-primary" href="<?= app_url('suppliers/edit.php?id=' . (int)$supplier['id']) ?>">
-                                    <i class="bi bi-pencil-square"></i>
-                                </a>
-                                <a class="btn btn-outline-danger" href="<?= app_url('suppliers/delete.php?id=' . (int)$supplier['id']) ?>">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </div>
-                        </td>
+                        <?php if ($canManageSuppliers): ?>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Supplier actions">
+                                    <a class="btn btn-outline-primary" href="<?= app_url('suppliers/edit.php?id=' . (int)$supplier['id']) ?>">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    <a class="btn btn-outline-danger" href="<?= app_url('suppliers/delete.php?id=' . (int)$supplier['id']) ?>">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
 
                 <?php if (!$suppliers): ?>
                     <tr>
-                        <td colspan="5" class="text-center text-muted py-4">
+                        <td colspan="<?= $canManageSuppliers ? 5 : 4 ?>" class="text-center text-muted py-4">
                             No suppliers found for this branch.
                         </td>
                     </tr>

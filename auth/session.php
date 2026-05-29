@@ -19,7 +19,12 @@ function current_branch_id(): int
 
 function valid_user_roles(): array
 {
-    return ['Admin', 'Area Manager', 'Manager', 'Cashier'];
+    return ['Admin', 'Area Manager', 'Manager', 'Cashier', 'Inventory Clerk', 'Purchasing Staff'];
+}
+
+function single_branch_roles(): array
+{
+    return ['Manager', 'Cashier', 'Inventory Clerk', 'Purchasing Staff'];
 }
 
 function has_role(array $roles): bool
@@ -51,7 +56,7 @@ function user_accessible_branches(PDO $pdo, int $userId, string $role, ?int $use
         return $stmt->fetchAll() ?: [];
     }
 
-    if (in_array($role, ['Manager', 'Cashier'], true) && $userBranchId !== null && $userBranchId > 0) {
+    if (in_array($role, single_branch_roles(), true) && $userBranchId !== null && $userBranchId > 0) {
         $stmt = $pdo->prepare('SELECT id, name, code FROM branches WHERE id = ? LIMIT 1');
         $stmt->execute([$userBranchId]);
         $branch = $stmt->fetch();
@@ -77,7 +82,7 @@ function session_accessible_branches(PDO $pdo): array
         return [];
     }
 
-    if (in_array($role, ['Manager', 'Cashier'], true)) {
+    if (in_array($role, single_branch_roles(), true)) {
         return user_accessible_branches(
             $pdo,
             $userId,
@@ -220,8 +225,10 @@ function default_permissions(string $role): array
     if (in_array($role, ['Area Manager', 'Manager'], true)) {
         return array_merge($permissions, [
             'products.manage',
+            'categories.view',
             'categories.manage',
             'inventory.manage',
+            'suppliers.view',
             'suppliers.manage',
             'purchases.view',
             'purchases.manage',
@@ -239,6 +246,29 @@ function default_permissions(string $role): array
 
     if ($role === 'Admin') {
         return ['*'];
+    }
+
+    if ($role === 'Inventory Clerk') {
+        return [
+            'dashboard.view',
+            'products.view',
+            'categories.view',
+            'inventory.view',
+            'inventory.manage',
+            'reports.view',
+        ];
+    }
+
+    if ($role === 'Purchasing Staff') {
+        return [
+            'dashboard.view',
+            'suppliers.view',
+            'suppliers.manage',
+            'purchases.view',
+            'purchases.manage',
+            'inventory.view',
+            'reports.view',
+        ];
     }
 
     return $permissions;

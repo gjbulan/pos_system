@@ -102,9 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (array_diff($areaBranchIds, $validBranchIds)) {
             $fail('One or more Area Manager branch assignments are invalid.');
         }
-    } elseif (in_array($role, ['Manager', 'Cashier'], true)) {
+    } elseif (in_array($role, single_branch_roles(), true)) {
         if ($branchId === '' || !ctype_digit($branchId)) {
-            $fail('Select exactly one branch for a Manager or Cashier.');
+            $fail('Select exactly one branch for this role.');
         }
 
         $branchIdValue = (int)$branchId;
@@ -335,7 +335,7 @@ function updateBranchPanels() {
         const show =
             (role === 'Admin' && mode === 'admin') ||
             (role === 'Area Manager' && mode === 'multiple') ||
-            ((role === 'Manager' || role === 'Cashier') && mode === 'single');
+            (['Manager', 'Cashier', 'Inventory Clerk', 'Purchasing Staff'].includes(role) && mode === 'single');
         panel.classList.toggle('d-none', !show);
     });
 }
